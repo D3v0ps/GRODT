@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getConfiguredProviderName } from "@/lib/providers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getAutoSyncEnabled } from "@/lib/settings";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +28,16 @@ export async function GET(request: NextRequest) {
       { ok: false, error: `För många anrop – vänta ${limit.retryAfterSeconds} s` },
       { status: 429 },
     );
+  }
+
+  // CSV-läge: ingen API-leverantör konfigurerad är ett normalt drifttillstånd,
+  // inte ett fel – cronen ska inte larma varje vecka.
+  if (getConfiguredProviderName() === null) {
+    return NextResponse.json({
+      ok: true,
+      skipped:
+        "Ingen dataleverantör är konfigurerad (DATA_PROVIDER) – bolag importeras via CSV. Cronen hoppade över synken.",
+    });
   }
 
   const admin = createSupabaseAdminClient();
