@@ -4,18 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   createUserAction,
+  resetUserPasswordAction,
   setUserActiveAction,
   setUserRoleAction,
 } from "@/actions/admin";
 import { AvatarWithName } from "@/components/avatar";
 import { ConfirmDialog, Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
+import { ROLES, type Roll } from "@/lib/constants";
 
 export interface AdminUserRow {
   id: string;
   namn: string;
   email: string;
-  roll: "admin" | "user";
+  roll: Roll;
   aktiv: boolean;
 }
 
@@ -33,11 +35,12 @@ export function AdminUsers({
   const [createOpen, setCreateOpen] = useState(false);
   const [namn, setNamn] = useState("");
   const [email, setEmail] = useState("");
-  const [roll, setRoll] = useState<"admin" | "user">("user");
+  const [roll, setRoll] = useState<Roll>("saljare");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [tempPassword, setTempPassword] = useState<{ namn: string; password: string } | null>(null);
   const [confirmUser, setConfirmUser] = useState<AdminUserRow | null>(null);
+  const [resetUser, setResetUser] = useState<AdminUserRow | null>(null);
 
   function submitCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -51,11 +54,12 @@ export function AdminUsers({
       }
       toast(result.message, "ok");
       setCreateOpen(false);
+      const createdNamn = namn.trim();
       setNamn("");
       setEmail("");
-      setRoll("user");
+      setRoll("saljare");
       if (result.tempPassword) {
-        setTempPassword({ namn: namn.trim(), password: result.tempPassword });
+        setTempPassword({ namn: createdNamn, password: result.tempPassword });
       }
       router.refresh();
     });
@@ -70,11 +74,26 @@ export function AdminUsers({
     });
   }
 
-  function changeRole(user: AdminUserRow, nextRoll: "admin" | "user") {
+  function changeRole(user: AdminUserRow, nextRoll: Roll) {
     startTransition(async () => {
       const result = await setUserRoleAction({ userId: user.id, roll: nextRoll });
       toast(result.message, result.ok ? "ok" : "err");
       if (result.ok) router.refresh();
+    });
+  }
+
+  function resetPassword(user: AdminUserRow) {
+    startTransition(async () => {
+      const result = await resetUserPasswordAction({ userId: user.id });
+      setResetUser(null);
+      if (!result.ok) {
+        toast(result.message, "err");
+        return;
+      }
+      toast(result.message, "ok");
+      if (result.tempPassword) {
+        setTempPassword({ namn: user.namn, password: result.tempPassword });
+      }
     });
   }
 
@@ -120,11 +139,14 @@ export function AdminUsers({
                       aria-label={`Roll för ${user.namn}`}
                       value={user.roll}
                       disabled={pending || user.id === currentUserId}
-                      onChange={(e) => changeRole(user, e.target.value as "admin" | "user")}
+                      onChange={(e) => changeRole(user, e.target.value as Roll)}
                       style={{ padding: "4px 8px", fontSize: 12 }}
                     >
-                      <option value="user">Användare</option>
-                      <option value="admin">Admin</option>
+                      {ROLES.map((r) => (
+                        <option key={r.key} value={r.key}>
+                          {r.label}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td>
@@ -141,30 +163,40 @@ export function AdminUsers({
                     )}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    {user.aktiv ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        disabled={pending || user.id === currentUserId}
-                        title={
-                          user.id === currentUserId
-                            ? "Du kan inte inaktivera ditt eget konto"
-                            : undefined
-                        }
-                        onClick={() => setConfirmUser(user)}
-                      >
-                        Inaktivera
-                      </button>
-                    ) : (
+                    <span style={{ display: "inline-flex", gap: 6 }}>
                       <button
                         type="button"
                         className="btn btn-sm"
-                        disabled={pending}
-                        onClick={() => toggleActive(user)}
+                        disabled={pending || !user.aktiv}
+                        onClick={() => setResetUser(user)}
                       >
-                        Återaktivera
+                        Nytt lösenord
                       </button>
-                    )}
+                      {user.aktiv ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          disabled={pending || user.id === currentUserId}
+                          title={
+                            user.id === currentUserId
+                              ? "Du kan inte inaktivera ditt eget konto"
+                              : undefined
+                          }
+                          onClick={() => setConfirmUser(user)}
+                        >
+                          Inaktivera
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={pending}
+                          onClick={() => toggleActive(user)}
+                        >
+                          Återaktivera
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -228,10 +260,13 @@ export function AdminUsers({
               className="select"
               id="nu-roll"
               value={roll}
-              onChange={(e) => setRoll(e.target.value as "admin" | "user")}
+              onChange={(e) => setRoll(e.target.value as Roll)}
             >
-              <option value="user">Användare</option>
-              <option value="admin">Admin</option>
+              {ROLES.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
             </select>
           </div>
           {formError && (
@@ -250,7 +285,7 @@ export function AdminUsers({
         open={tempPassword !== null}
         onClose={() => setTempPassword(null)}
         titleId="pw-title"
-        title="Konto skapat"
+        title="Tillfälligt lösenord"
         footer={
           <button type="button" className="btn btn-primary" onClick={() => setTempPassword(null)}>
             Klart – lösenordet är delat
@@ -259,9 +294,13 @@ export function AdminUsers({
       >
         <p>
           Tillfälligt lösenord för <strong>{tempPassword?.namn}</strong>. Det visas bara
-          den här gången – kopiera och dela det säkert:
+          den här gången – kopiera och dela det säkert. Användaren byter själv under
+          Inställningar → Mitt konto:
         </p>
-        <p className="mono" style={{ fontSize: 15, padding: "8px 10px", background: "var(--line-soft)", borderRadius: 6 }}>
+        <p
+          className="mono"
+          style={{ fontSize: 15, padding: "8px 10px", background: "var(--line-soft)", borderRadius: 6 }}
+        >
           {tempPassword?.password}
         </p>
       </Modal>
@@ -275,6 +314,16 @@ export function AdminUsers({
         busy={pending}
         onConfirm={() => confirmUser && toggleActive(confirmUser)}
         onCancel={() => setConfirmUser(null)}
+      />
+
+      <ConfirmDialog
+        open={resetUser !== null}
+        title="Sätta nytt lösenord?"
+        body={`${resetUser?.namn ?? ""} får ett nytt tillfälligt lösenord som visas för dig en gång. Det gamla lösenordet slutar gälla direkt.`}
+        actionLabel="Sätt nytt lösenord"
+        busy={pending}
+        onConfirm={() => resetUser && resetPassword(resetUser)}
+        onCancel={() => setResetUser(null)}
       />
     </>
   );

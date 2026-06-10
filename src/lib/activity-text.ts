@@ -1,8 +1,9 @@
-import { statusLabel } from "@/lib/constants";
+import { kundStatusLabel, rollLabel, statusLabel } from "@/lib/constants";
+import { fmtKr } from "@/lib/format";
 
 /**
  * Renderar audit log-rader som svenska meningar. Ren funktion – används
- * både i dashboardens flöde, bolagets tidslinje och admin-loggen.
+ * både i dashboardens flöde, bolagets/kundens tidslinje och admin-loggen.
  */
 
 type Payload = Record<string, unknown>;
@@ -36,9 +37,18 @@ export function actionLabel(action: string): string {
     case "anvandare_inaktiverad":
     case "anvandare_aktiverad":
     case "roll_andrad":
+    case "losenord_bytt":
+    case "losenord_aterstallt":
       return "Användare";
     case "installningar_andrade":
       return "Inställningar";
+    case "kund_overlamnad":
+    case "kund_skapad":
+    case "kund_status":
+    case "kund_controller":
+    case "kund_intakt":
+    case "kund_kommentar":
+      return "Kund";
     default:
       return action;
   }
@@ -63,15 +73,37 @@ export function activityDetail(action: string, payload: Payload): string {
     case "export":
       return `CSV-export, ${num(payload, "rader")} rader`;
     case "anvandare_skapad":
-      return `Skapade konto för ${namn} (${str(payload, "roll") === "admin" ? "Admin" : "Användare"})`;
+      return `Skapade konto för ${namn} (${rollLabel(str(payload, "roll"))})`;
     case "anvandare_inaktiverad":
       return `Inaktiverade ${namn}`;
     case "anvandare_aktiverad":
       return `Återaktiverade ${namn}`;
     case "roll_andrad":
-      return `${namn} → ${str(payload, "roll") === "admin" ? "Admin" : "Användare"}`;
+      return `${namn} → ${rollLabel(str(payload, "roll"))}`;
+    case "losenord_bytt":
+      return "Bytte sitt lösenord";
+    case "losenord_aterstallt":
+      return `Återställde lösenordet för ${namn}`;
     case "installningar_andrade":
       return str(payload, "beskrivning") || "Uppdaterade filterparametrarna";
+    case "kund_overlamnad": {
+      const controller = str(payload, "controller");
+      return controller
+        ? `${namn} överlämnad till ${controller}`
+        : `${namn} överlämnad (ingen controller vald)`;
+    }
+    case "kund_skapad":
+      return `${namn} tillagd manuellt som kund`;
+    case "kund_status":
+      return `${namn}: ${kundStatusLabel(str(payload, "fran"))} → ${kundStatusLabel(str(payload, "till"))}`;
+    case "kund_controller": {
+      const controller = str(payload, "controller");
+      return controller ? `${namn} → ${controller}` : `${namn}: controller borttagen`;
+    }
+    case "kund_intakt":
+      return `${namn}: +${fmtKr(num(payload, "belopp"))}${str(payload, "beskrivning") ? ` (${str(payload, "beskrivning")})` : ""}`;
+    case "kund_kommentar":
+      return `${namn}: ny kommentar`;
     default:
       return JSON.stringify(payload);
   }
@@ -103,14 +135,38 @@ export function activityFeedText(action: string, payload: Payload): string {
       return `återaktiverade ${namn}`;
     case "roll_andrad":
       return `ändrade rollen för ${namn}`;
+    case "losenord_bytt":
+      return "bytte sitt lösenord";
+    case "losenord_aterstallt":
+      return `återställde lösenordet för ${namn}`;
     case "installningar_andrade":
       return "uppdaterade inställningarna";
+    case "kund_overlamnad": {
+      const controller = str(payload, "controller");
+      return controller
+        ? `lämnade över ${namn} till ${controller}`
+        : `lämnade över ${namn}`;
+    }
+    case "kund_skapad":
+      return `lade till ${namn} som kund`;
+    case "kund_status":
+      return `satte ${namn} som ${kundStatusLabel(str(payload, "till"))}`;
+    case "kund_controller": {
+      const controller = str(payload, "controller");
+      return controller
+        ? `gav ${namn} till ${controller}`
+        : `tog bort controllern på ${namn}`;
+    }
+    case "kund_intakt":
+      return `registrerade ${fmtKr(num(payload, "belopp"))} på ${namn}`;
+    case "kund_kommentar":
+      return `kommenterade på ${namn}`;
     default:
       return action;
   }
 }
 
-/** Tidslinjetext på bolagsdetaljen ("Status ändrad till Dialog"). */
+/** Tidslinjetext på bolags-/kundkortet ("Status ändrad till Dialog"). */
 export function activityTimelineText(action: string, payload: Payload): string {
   switch (action) {
     case "status_andrad":
@@ -125,6 +181,22 @@ export function activityTimelineText(action: string, payload: Payload): string {
       return str(payload, "ny_lead") === "ja" ? "Hämtad via synk (ny)" : "Uppdaterad via synk";
     case "csv_import":
       return str(payload, "ny_lead") === "ja" ? "Importerad via CSV (ny)" : "Uppdaterad via CSV-import";
+    case "kund_overlamnad": {
+      const controller = str(payload, "controller");
+      return controller ? `Överlämnad till ${controller}` : "Överlämnad till controllers";
+    }
+    case "kund_skapad":
+      return "Tillagd manuellt som kund";
+    case "kund_status":
+      return `Kundstatus ändrad till ${kundStatusLabel(str(payload, "till"))}`;
+    case "kund_controller": {
+      const controller = str(payload, "controller");
+      return controller ? `Controller: ${controller}` : "Controller borttagen";
+    }
+    case "kund_intakt":
+      return `Intäkt registrerad: ${fmtKr(num(payload, "belopp"))}`;
+    case "kund_kommentar":
+      return "Kommentar tillagd";
     default:
       return activityDetail(action, payload);
   }

@@ -18,6 +18,36 @@ export function statusLabel(key: string): string {
   return LEAD_STATUSES.find((s) => s.key === key)?.label ?? key;
 }
 
+/** Kundens livscykel efter att säljaren vunnit och lämnat över. */
+export const KUND_STATUSES = [
+  { key: "overlamnad", label: "Överlämnad" },
+  { key: "pagaende", label: "Pågående" },
+  { key: "klar", label: "Klar" },
+] as const;
+
+export type KundStatus = (typeof KUND_STATUSES)[number]["key"];
+
+export const KUND_STATUS_KEYS = KUND_STATUSES.map((s) => s.key) as [
+  KundStatus,
+  ...KundStatus[],
+];
+
+export function kundStatusLabel(key: string): string {
+  return KUND_STATUSES.find((s) => s.key === key)?.label ?? key;
+}
+
+export const ROLES = [
+  { key: "saljare", label: "Säljare" },
+  { key: "controller", label: "Controller" },
+  { key: "admin", label: "Admin" },
+] as const;
+
+export type Roll = (typeof ROLES)[number]["key"];
+
+export function rollLabel(roll: string): string {
+  return ROLES.find((r) => r.key === roll)?.label ?? "Säljare";
+}
+
 export const SNI_LABELS: Record<string, string> = {
   "78.100": "Arbetsförmedling och rekrytering",
   "78.200": "Personaluthyrning",

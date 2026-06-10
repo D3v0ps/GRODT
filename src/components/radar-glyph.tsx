@@ -25,7 +25,7 @@ export function RadarGlyph({
         <path d="M20 20 L20 2 A18 18 0 0 1 32.7 7.3 Z" fill="currentColor" fillOpacity="0.18" />
         <line x1="20" y1="20" x2="20" y2="2" stroke="currentColor" strokeWidth="1.5" />
       </g>
-      <circle className="blip" cx="28" cy="12" r="2.2" fill="#FF0C01" />
+      <circle className="blip" cx="28" cy="12" r="2.2" fill="var(--accent, #C9921A)" />
     </svg>
   );
 }

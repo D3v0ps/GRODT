@@ -9,11 +9,11 @@ export default function LoginPage() {
     <div className="login-screen">
       <div className="login-rings" aria-hidden="true">
         <svg width="720" height="720" viewBox="0 0 720 720" fill="none">
-          <circle cx="360" cy="360" r="340" stroke="#39434B" strokeWidth="1" />
-          <circle cx="360" cy="360" r="250" stroke="#39434B" strokeWidth="1" />
-          <circle cx="360" cy="360" r="160" stroke="#39434B" strokeWidth="1" />
-          <circle cx="510" cy="240" r="4" fill="#FF0C01" />
-          <circle cx="250" cy="480" r="3" fill="#6BA2B9" />
+          <circle cx="360" cy="360" r="340" stroke="#2A4437" strokeWidth="1" />
+          <circle cx="360" cy="360" r="250" stroke="#2A4437" strokeWidth="1" />
+          <circle cx="360" cy="360" r="160" stroke="#2A4437" strokeWidth="1" />
+          <circle cx="510" cy="240" r="4" fill="#C9921A" />
+          <circle cx="250" cy="480" r="3" fill="#6FA293" />
         </svg>
       </div>
       <div className="login-card">
@@ -23,7 +23,7 @@ export default function LoginPage() {
           </span>
           <span className="wordmark">GRODT</span>
         </div>
-        <p className="tagline">Leadradar för rekrytering &amp; bemanning</p>
+        <p className="tagline">Get rich or die trying</p>
         <Suspense>
           <LoginForm />
         </Suspense>

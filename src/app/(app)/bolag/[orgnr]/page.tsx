@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { IconBack } from "@/components/icons";
 import { DetailActions } from "./detail-actions";
+import { HandoffPanel } from "./handoff-panel";
 import { NoteForm } from "./note-form";
 import { TrendChart } from "./trend-chart";
 
@@ -45,7 +46,7 @@ export default async function BolagDetaljPage({
   if (!company) notFound();
 
   const years = displayYears(settings);
-  const [financialsRes, leadRes, usersRes] = await Promise.all([
+  const [financialsRes, leadRes, usersRes, customerRes] = await Promise.all([
     supabase
       .from("company_financials")
       .select("year, revenue_sek, profit_sek, employees")
@@ -57,11 +58,13 @@ export default async function BolagDetaljPage({
       .eq("orgnr", orgnr)
       .maybeSingle(),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
+    supabase.from("customers").select("id").eq("orgnr", orgnr).maybeSingle(),
   ]);
 
   const financials = financialsRes.data ?? [];
   const lead = leadRes.data ?? null;
   const users = usersRes.data ?? [];
+  const customer = customerRes.data ?? null;
 
   const [notesRes, activities] = await Promise.all([
     lead
@@ -107,6 +110,10 @@ export default async function BolagDetaljPage({
           </span>
         )}
       </div>
+
+      {lead?.status === "kund" && (
+        <HandoffPanel orgnr={orgnr} customerId={customer?.id ?? null} controllers={users} />
+      )}
 
       <div className="detail-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>

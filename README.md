@@ -1,10 +1,15 @@
 # GRODT – Leadradar
 
-Internt, lösenordsskyddat leadverktyg för svenska bolag inom rekrytering och
-bemanning (SNI 78.100): importera och hämta bolag, kvalificera dem mot en
-omsättningströskel och följ upp dem i lista, bolagskort och pipeline. Hela
-gränssnittet är på svenska. Designen följer `design/DESIGN_SPEC.md` och
-mockuperna i `design/`.
+**Get rich or die trying.** Internt, lösenordsskyddat verktyg för hela
+flödet inom rekrytering och bemanning (SNI 78.100): importera och hämta
+bolag, kvalificera dem mot en omsättningströskel, driv dem genom
+pipelinen – och när säljaren vunnit affären lämnas bolaget över till en
+controller under **Kunder**, med intäktsspårning, kommentarer och
+topplista. Hela gränssnittet är på svenska.
+
+Designstrukturen följer `design/DESIGN_SPEC.md`; färgtemat är omskinnat
+till **Smaragd & mässing** (mörk skogsgrön + mässingsaccent – tokens i
+`src/app/globals.css`).
 
 **Stack:** Next.js 15 (App Router, TypeScript) · Tailwind CSS v4 ·
 Supabase (Postgres, Auth, RLS) · Vercel (hosting + cron) · Zod · Vitest.
@@ -95,9 +100,16 @@ Logga in på `http://localhost:3000` med seed-kontot. Gå till
 
 ## Importera bolag via CSV
 
-Vyn **Import & synk → Importera CSV** tar emot filer upp till 5 MB.
-Avgränsare (`;`, `,` eller tab), citattecken, UTF-8/Windows-1252 och BOM
-hanteras automatiskt – filer direkt ur svensk Excel fungerar.
+Vyn **Import & synk → Importera CSV** är byggd för stora filer (testad
+arkitektur upp till ~250 MB / 1 miljon rader): filen läses och tolkas i
+webbläsaren och laddas sedan upp i omgångar om 500 bolag till
+`/api/import/batch` med förloppsindikator – det kringgår Vercels gräns på
+~4,5 MB per request. Har filen en SNI-kolumn kan den filtreras till
+inställningarnas SNI-koder redan vid tolkningen, vilket bantar
+jättefiler till det relevanta urvalet. Avgränsare (`;`, `,` eller tab),
+citattecken, UTF-8/Windows-1252 och BOM hanteras automatiskt – filer
+direkt ur svensk Excel fungerar. Avbruten import kan köras om: allt är
+idempotent på orgnr.
 
 ### Kolumner som känns igen
 
@@ -176,12 +188,27 @@ implementerar gränssnittet + en rad i `src/lib/providers/index.ts`.
   kvalificerade orgnr ⇒ lead med status `ny` → `import_runs` + audit log.
   Idempotent: två körningar i rad ger inga dubbletter.
 
+## Kundmodulen
+
+- **Flöde:** lead vinns (status Kund) → säljaren klickar **"Lämna över
+  till controller"** på bolagskortet → bolaget blir kund under **Kunder**
+  med status Överlämnad → Pågående → Klar.
+- **Intäkter:** registreras löpande per kund (belopp i kr + beskrivning);
+  totalsumma per kund, i KPI:erna och i **Topplistan** per säljare.
+- **Kommentarer:** delas av hela teamet, alltid med författare och tid.
+- **Roller:** Säljare, Controller och Admin (etiketter och arbetsflöde –
+  alla aktiva användare kan läsa och arbeta med allt, endast admin hanterar
+  konton/inställningar; varje mutation audit-loggas).
+- Kunder kan även läggas till manuellt under Kunder → "Lägg till kund".
+
 ## Säkerhet
 
 - **Auth:** Supabase e-post + lösenord. Invite-only – konton skapas av
-  admin under **Admin** (tillfälligt lösenord visas en gång). Middleware
-  skyddar alla routes utom `/login`; inaktiverade konton stängs ute på
-  nästa request och spärras (ban) i Auth.
+  admin under **Admin** (tillfälligt lösenord visas en gång). Egna lösenord
+  byts under **Inställningar → Mitt konto**; admin kan sätta nytt lösenord
+  för vem som helst under Admin. Middleware skyddar alla routes utom
+  `/login`; inaktiverade konton stängs ute på nästa request och spärras
+  (ban) i Auth.
 - **RLS:** ingen publik åtkomst alls. Inloggade aktiva användare läser
   bolag/bokslut/leads/anteckningar och får skapa/uppdatera leads och
   anteckningar. `activities` skrivs endast server-side och läses endast av

@@ -68,7 +68,7 @@ export default async function AdminPage({
     id: p.id,
     namn: p.namn,
     email: emailById.get(p.id) ?? "",
-    roll: p.roll === "admin" ? "admin" : "user",
+    roll: p.roll === "admin" || p.roll === "controller" ? p.roll : "saljare",
     aktiv: p.aktiv,
   }));
 

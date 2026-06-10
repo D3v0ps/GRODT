@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { signOutAction } from "@/actions/auth";
+import { rollLabel, type Roll } from "@/lib/constants";
 import { Avatar } from "./avatar";
 import {
+  IconBriefcase,
   IconBuildings,
   IconDashboard,
   IconDesign,
@@ -20,13 +22,14 @@ import { RadarGlyph } from "./radar-glyph";
 interface ShellProfile {
   userId: string;
   namn: string;
-  roll: "admin" | "user";
+  roll: Roll;
 }
 
 const MAIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
   { href: "/bolag", label: "Bolag", icon: IconBuildings },
   { href: "/pipeline", label: "Pipeline", icon: IconPipeline },
+  { href: "/kunder", label: "Kunder", icon: IconBriefcase },
   { href: "/synk", label: "Import & synk", icon: IconSync },
 ] as const;
 
@@ -77,7 +80,7 @@ export function AppShell({
           </span>
           <span>
             <span className="wordmark">GRODT</span>
-            <span className="sub">Leadradar</span>
+            <span className="sub">Get rich or die trying</span>
           </span>
         </div>
         <nav className="nav" aria-label="Huvudnavigering">
@@ -94,7 +97,7 @@ export function AppShell({
           <span className="who">
             {profile.namn}
             <br />
-            <span className="role">{profile.roll === "admin" ? "Admin" : "Användare"}</span>
+            <span className="role">{rollLabel(profile.roll)}</span>
           </span>
           <form action={signOutAction}>
             <button className="logout" title="Logga ut" aria-label="Logga ut" type="submit">

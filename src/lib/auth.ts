@@ -1,10 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Roll } from "@/lib/constants";
 
 export interface SessionProfile {
   userId: string;
   email: string;
   namn: string;
-  roll: "admin" | "user";
+  roll: Roll;
 }
 
 /** Inloggad användare med aktiv profil, annars null. */
@@ -22,11 +23,15 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     .maybeSingle();
 
   if (!profile?.aktiv) return null;
+  const roll: Roll =
+    profile.roll === "admin" || profile.roll === "controller"
+      ? profile.roll
+      : "saljare";
   return {
     userId: user.id,
     email: user.email ?? "",
     namn: profile.namn,
-    roll: profile.roll === "admin" ? "admin" : "user",
+    roll,
   };
 }
 

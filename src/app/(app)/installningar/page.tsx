@@ -8,6 +8,7 @@ import {
 } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { IconInfo } from "@/components/icons";
+import { AccountCard } from "./account-card";
 import { SettingsForm } from "./settings-form";
 
 export const metadata = { title: "Inställningar – GRODT" };
@@ -45,6 +46,11 @@ export default async function InstallningarPage() {
         apiConfigured={apiConfigured}
         lastOkRun={lastOkRun}
       />
+      {session && (
+        <div style={{ marginTop: 14 }}>
+          <AccountCard namn={session.namn} email={session.email} roll={session.roll} />
+        </div>
+      )}
     </section>
   );
 }

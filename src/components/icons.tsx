@@ -31,6 +31,16 @@ export function IconPipeline({ className = "icon" }: IconProps) {
   );
 }
 
+export function IconBriefcase({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1.5" y="4.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5.5 4.5V3.2A1.2 1.2 0 0 1 6.7 2h2.6a1.2 1.2 0 0 1 1.2 1.2v1.3M1.5 8h13" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M8 7v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconSync({ className = "icon" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">

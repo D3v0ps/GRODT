@@ -7,7 +7,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * insert-policy för vanliga användare.
  */
 
-export type ActivityEntityType = "lead" | "anvandare" | "installningar" | "synk";
+export type ActivityEntityType =
+  | "lead"
+  | "kund"
+  | "anvandare"
+  | "installningar"
+  | "synk";
 
 export type ActivityAction =
   | "status_andrad"
@@ -20,7 +25,15 @@ export type ActivityAction =
   | "anvandare_inaktiverad"
   | "anvandare_aktiverad"
   | "roll_andrad"
-  | "installningar_andrade";
+  | "losenord_bytt"
+  | "losenord_aterstallt"
+  | "installningar_andrade"
+  | "kund_overlamnad"
+  | "kund_skapad"
+  | "kund_status"
+  | "kund_controller"
+  | "kund_intakt"
+  | "kund_kommentar";
 
 export interface ActivityInput {
   actorId: string | null;

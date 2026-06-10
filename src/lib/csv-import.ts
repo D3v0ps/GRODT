@@ -35,6 +35,18 @@ export interface CsvCompanyRow {
 
 export type CsvFormat = "brett" | "langt" | "endast-bolag";
 
+export interface CsvParseOptions {
+  /**
+   * Behåll endast rader vars SNI-kod matchar någon av dessa koder
+   * (t.ex. inställningarnas ["78.100"]). Tillämhär bara när filen har en
+   * SNI-kolumn – saknas kolumnen behålls alla rader och sniColumnFound
+   * blir false. Filtreringen sker under tolkningen, vilket gör att även
+   * mycket stora filer (hundratusentals rader) kan bantas till det
+   * relevanta urvalet utan att allt materialiseras.
+   */
+  sniFilter?: string[];
+}
+
 export interface CsvParseOutcome {
   rows: CsvCompanyRow[];
   errors: CsvRowError[];
@@ -42,11 +54,16 @@ export interface CsvParseOutcome {
   /** Vilka räkenskapsår som förekommer i filen. */
   yearsFound: number[];
   hasRevenueData: boolean;
+  /** Om filen hade en SNI-kolumn (krävs för SNI-filtrering). */
+  sniColumnFound: boolean;
+  /** Antal rader som filtrerades bort av sniFilter. */
+  rowsFilteredBySni: number;
   format: CsvFormat;
   delimiter: string;
 }
 
-export const CSV_MAX_ROWS = 10_000;
+/** Tolkning sker klient-side, så taket är satt efter webbläsarminne. */
+export const CSV_MAX_ROWS = 1_000_000;
 
 /* ------------------------------------------------------------------ */
 /* Teckenkodning                                                        */
@@ -359,51 +376,42 @@ function cell(row: string[], index: number | undefined | null): string {
   return (row[index] ?? "").trim();
 }
 
-export function parseCompanyCsv(text: string): CsvParseOutcome {
+export function parseCompanyCsv(
+  text: string,
+  options: CsvParseOptions = {},
+): CsvParseOutcome {
   const delimiter = detectDelimiter(text);
   const raw = parseCsvRaw(text, delimiter);
   const errors: CsvRowError[] = [];
 
+  const failed = (message: string, mapping?: HeaderMapping): CsvParseOutcome => ({
+    rows: [],
+    errors: [{ row: 1, message }],
+    ignoredColumns: mapping?.ignored ?? [],
+    yearsFound: [],
+    hasRevenueData: false,
+    sniColumnFound: mapping?.company.sni !== undefined,
+    rowsFilteredBySni: 0,
+    format: "endast-bolag",
+    delimiter,
+  });
+
   if (raw.length === 0) {
-    return { rows: [], errors: [{ row: 1, message: "Filen är tom." }], ignoredColumns: [], yearsFound: [], hasRevenueData: false, format: "endast-bolag", delimiter };
+    return failed("Filen är tom.");
   }
   if (raw.length - 1 > CSV_MAX_ROWS) {
-    return { rows: [], errors: [{ row: 1, message: `Filen har fler än ${CSV_MAX_ROWS} rader – dela upp den.` }], ignoredColumns: [], yearsFound: [], hasRevenueData: false, format: "endast-bolag", delimiter };
+    return failed(`Filen har fler än ${CSV_MAX_ROWS} rader – dela upp den.`);
   }
 
   const mapping = mapHeaders(raw[0]);
   if (mapping.company.orgnr === undefined) {
-    return {
-      rows: [],
-      errors: [{ row: 1, message: 'Hittar ingen orgnr-kolumn. Döp kolumnen till t.ex. "Orgnr" eller "Organisationsnummer".' }],
-      ignoredColumns: mapping.ignored,
-      yearsFound: [],
-      hasRevenueData: false,
-      format: "endast-bolag",
-      delimiter,
-    };
+    return failed('Hittar ingen orgnr-kolumn. Döp kolumnen till t.ex. "Orgnr" eller "Organisationsnummer".', mapping);
   }
   if (mapping.company.namn === undefined) {
-    return {
-      rows: [],
-      errors: [{ row: 1, message: 'Hittar ingen namnkolumn. Döp kolumnen till t.ex. "Bolagsnamn" eller "Namn".' }],
-      ignoredColumns: mapping.ignored,
-      yearsFound: [],
-      hasRevenueData: false,
-      format: "endast-bolag",
-      delimiter,
-    };
+    return failed('Hittar ingen namnkolumn. Döp kolumnen till t.ex. "Bolagsnamn" eller "Namn".', mapping);
   }
   if (mapping.long && mapping.yearColumns.length > 0) {
-    return {
-      rows: [],
-      errors: [{ row: 1, message: 'Filen blandar årskolumner (t.ex. "Omsättning 2023") med en separat År-kolumn. Använd det ena formatet.' }],
-      ignoredColumns: mapping.ignored,
-      yearsFound: [],
-      hasRevenueData: false,
-      format: "endast-bolag",
-      delimiter,
-    };
+    return failed('Filen blandar årskolumner (t.ex. "Omsättning 2023") med en separat År-kolumn. Använd det ena formatet.', mapping);
   }
 
   const format: CsvFormat = mapping.long
@@ -412,12 +420,28 @@ export function parseCompanyCsv(text: string): CsvParseOutcome {
       ? "brett"
       : "endast-bolag";
 
+  const sniColumnFound = mapping.company.sni !== undefined;
+  const sniFilterSet =
+    sniColumnFound && options.sniFilter && options.sniFilter.length > 0
+      ? new Set(options.sniFilter.map((c) => c.replace(/\D/g, "")))
+      : null;
+  let rowsFilteredBySni = 0;
+
   // orgnr → ackumulerad rad (dubbletter i filen slås ihop).
   const byOrgnr = new Map<string, CsvCompanyRow>();
 
   for (let i = 1; i < raw.length; i++) {
     const row = raw[i];
     const lineNo = i + 1;
+
+    if (sniFilterSet) {
+      const sniDigits = cell(row, mapping.company.sni).replace(/\D/g, "");
+      if (!sniFilterSet.has(sniDigits)) {
+        rowsFilteredBySni++;
+        continue;
+      }
+    }
+
     const orgnr = normalizeOrgnr(cell(row, mapping.company.orgnr));
     if (!orgnr) {
       errors.push({ row: lineNo, message: `Ogiltigt organisationsnummer: "${cell(row, mapping.company.orgnr)}"` });
@@ -477,7 +501,17 @@ export function parseCompanyCsv(text: string): CsvParseOutcome {
   const yearsFound = [...new Set(rows.flatMap((r) => r.financials.map((f) => f.year)))].sort();
   const hasRevenueData = rows.some((r) => r.financials.some((f) => f.revenueSek !== null));
 
-  return { rows, errors, ignoredColumns: mapping.ignored, yearsFound, hasRevenueData, format, delimiter };
+  return {
+    rows,
+    errors,
+    ignoredColumns: mapping.ignored,
+    yearsFound,
+    hasRevenueData,
+    sniColumnFound,
+    rowsFilteredBySni,
+    format,
+    delimiter,
+  };
 }
 
 function ensureYear(financials: YearFinancials[], year: number): YearFinancials {

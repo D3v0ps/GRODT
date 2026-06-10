@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/auth";
+import { rollLabel } from "@/lib/constants";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "./types";
 
@@ -16,7 +17,7 @@ import type { ActionResult } from "./types";
 const createUserSchema = z.object({
   namn: z.string().trim().min(2, "Ange för- och efternamn.").max(120),
   email: z.email("Ogiltig e-postadress."),
-  roll: z.enum(["admin", "user"]),
+  roll: z.enum(["admin", "saljare", "controller"]),
 });
 
 export interface CreateUserResult extends ActionResult {
@@ -139,7 +140,7 @@ export async function setUserActiveAction(
 
 const setRoleSchema = z.object({
   userId: z.uuid(),
-  roll: z.enum(["admin", "user"]),
+  roll: z.enum(["admin", "saljare", "controller"]),
 });
 
 export async function setUserRoleAction(
@@ -174,7 +175,60 @@ export async function setUserRoleAction(
       payload: { namn: profile.namn, roll },
     });
     revalidatePath("/admin");
-    return { ok: true, message: `${profile.namn} är nu ${roll === "admin" ? "Admin" : "Användare"}` };
+    return { ok: true, message: `${profile.namn} är nu ${rollLabel(roll)}` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
+const resetPasswordSchema = z.object({
+  userId: z.uuid(),
+});
+
+export interface ResetPasswordResult extends ActionResult {
+  /** Visas EN gång för administratören. */
+  tempPassword?: string;
+}
+
+/** Admin återställer en användares lösenord – nytt engångslösenord genereras. */
+export async function resetUserPasswordAction(
+  input: z.infer<typeof resetPasswordSchema>,
+): Promise<ResetPasswordResult> {
+  try {
+    const session = await requireAdmin();
+    const parsed = resetPasswordSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Ogiltig förfrågan." };
+    const { userId } = parsed.data;
+
+    const admin = createSupabaseAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("namn")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!profile) return { ok: false, message: "Användaren hittades inte." };
+
+    const tempPassword = `Grodt-${randomBytes(9).toString("base64url")}`;
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    });
+    if (error) {
+      return { ok: false, message: `Kunde inte återställa: ${error.message}` };
+    }
+
+    await logActivity({
+      actorId: session.userId,
+      entityType: "anvandare",
+      entityId: userId,
+      action: "losenord_aterstallt",
+      payload: { namn: profile.namn },
+    });
+    revalidatePath("/admin");
+    return {
+      ok: true,
+      message: `Nytt lösenord satt för ${profile.namn}`,
+      tempPassword,
+    };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
   }

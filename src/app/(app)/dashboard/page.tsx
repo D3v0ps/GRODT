@@ -28,28 +28,30 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
   const settings = await getSyncFilter(supabase);
 
-  const [companiesRes, statusRes, newUnassignedRes, recentCustomersRes, lastRunRes, autoSync] =
-    await Promise.all([
-      supabase.from("companies").select("orgnr", { count: "exact", head: true }),
-      supabase.rpc("lead_status_counts"),
-      supabase
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "ny")
-        .is("owner_id", null),
-      supabase
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "kund")
-        .gte("updated_at", new Date(Date.now() - 30 * 86_400_000).toISOString()),
-      supabase
-        .from("import_runs")
-        .select("finished_at, created, source")
-        .eq("status", "ok")
-        .order("finished_at", { ascending: false })
-        .limit(1),
-      getAutoSyncEnabled(supabase),
-    ]);
+  const [
+    companiesRes,
+    statusRes,
+    newUnassignedRes,
+    customerStatsRes,
+    lastRunRes,
+    autoSync,
+  ] = await Promise.all([
+    supabase.from("companies").select("orgnr", { count: "exact", head: true }),
+    supabase.rpc("lead_status_counts"),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "ny")
+      .is("owner_id", null),
+    supabase.rpc("customer_stats"),
+    supabase
+      .from("import_runs")
+      .select("finished_at, created, source")
+      .eq("status", "ok")
+      .order("finished_at", { ascending: false })
+      .limit(1),
+    getAutoSyncEnabled(supabase),
+  ]);
 
   const companyCount = companiesRes.count ?? 0;
   const statusCounts = new Map<string, number>(
@@ -62,8 +64,11 @@ export default async function DashboardPage() {
     (statusCounts.get("kontaktad") ?? 0) +
     (statusCounts.get("dialog") ?? 0) +
     (statusCounts.get("mote") ?? 0);
-  const customers = statusCounts.get("kund") ?? 0;
-  const recentCustomers = recentCustomersRes.count ?? 0;
+  const customerStats = (customerStatsRes.data ?? [])[0] as
+    | { totalt: number; intjanat_totalt: number }
+    | undefined;
+  const customers = Number(customerStats?.totalt ?? 0);
+  const totalRevenue = Number(customerStats?.intjanat_totalt ?? 0);
   const lastRun = lastRunRes.data?.[0] ?? null;
 
   const activities = await fetchActivities({ limit: 6 });
@@ -120,12 +125,12 @@ export default async function DashboardPage() {
           <div className="kpi-label">Kunder</div>
           <div className="kpi-value">{fmtNumber(customers)}</div>
           <div className="kpi-meta">
-            {recentCustomers > 0 ? (
+            {totalRevenue > 0 ? (
               <>
-                <span className="up">+{fmtNumber(recentCustomers)}</span> senaste 30 dagarna
+                <span className="up">{fmtKr(totalRevenue)}</span> intjänat totalt
               </>
             ) : (
-              "Inga nya senaste 30 dagarna"
+              "Inga intäkter registrerade ännu"
             )}
           </div>
         </div>

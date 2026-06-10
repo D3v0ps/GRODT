@@ -170,6 +170,39 @@ describe("parseCompanyCsv – långt format", () => {
   });
 });
 
+describe("parseCompanyCsv – SNI-filter (stora filer)", () => {
+  const csv = [
+    "Orgnr;Bolagsnamn;SNI;Omsättning 2022",
+    "556712-4830;Nordisk Bemanning AB;78.100;9 000 000",
+    "556903-1177;Talangpartner Sverige AB;78100;8 000 000",
+    "556488-2901;IT-Konsulterna AB;62.010;50 000 000",
+  ].join("\n");
+
+  it("behåller endast rader med matchande SNI-kod (med eller utan punkt)", () => {
+    const outcome = parseCompanyCsv(csv, { sniFilter: ["78.100"] });
+    expect(outcome.sniColumnFound).toBe(true);
+    expect(outcome.rows.map((r) => r.details.orgnr)).toEqual([
+      "556712-4830",
+      "556903-1177",
+    ]);
+    expect(outcome.rowsFilteredBySni).toBe(1);
+  });
+
+  it("utan filter behålls alla rader", () => {
+    const outcome = parseCompanyCsv(csv);
+    expect(outcome.rows).toHaveLength(3);
+    expect(outcome.rowsFilteredBySni).toBe(0);
+  });
+
+  it("saknas SNI-kolumn ignoreras filtret och sniColumnFound blir false", () => {
+    const noSni = ["Orgnr;Bolagsnamn", "556712-4830;Nordisk Bemanning AB"].join("\n");
+    const outcome = parseCompanyCsv(noSni, { sniFilter: ["78.100"] });
+    expect(outcome.sniColumnFound).toBe(false);
+    expect(outcome.rows).toHaveLength(1);
+    expect(outcome.rowsFilteredBySni).toBe(0);
+  });
+});
+
 describe("parseCompanyCsv – endast bolagslista (utan siffror)", () => {
   it("identifierar att omsättningsdata saknas", () => {
     const csv = ["Orgnr;Bolagsnamn;Ort", "556712-4830;Nordisk Bemanning AB;Stockholm"].join("\n");

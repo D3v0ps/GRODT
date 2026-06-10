@@ -85,7 +85,7 @@ export default async function SynkPage() {
         </div>
       </div>
 
-      <CsvImportCard />
+      <CsvImportCard sniCodes={settings.sniCodes} />
 
       <div className="table-shell">
         <div className="table-toolbar">

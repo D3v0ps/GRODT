@@ -6,13 +6,13 @@ import { DsDemos } from "./ds-demos";
 export const metadata = { title: "Designsystem – GRODT" };
 
 const SWATCHES = [
-  { name: "Bläck", hex: "#1E252B" },
-  { name: "Signalröd", hex: "#FF0C01" },
-  { name: "Djupröd (text)", hex: "#D40A01" },
-  { name: "Duvblå", hex: "#6BA2B9" },
-  { name: "Fjordblå (text)", hex: "#33718C" },
-  { name: "Dis", hex: "#F8FAFC" },
-  { name: "Linje", hex: "#DDE4E9" },
+  { name: "Skog", hex: "#14271E" },
+  { name: "Mässing", hex: "#C9921A" },
+  { name: "Mässing djup (text)", hex: "#8A650E" },
+  { name: "Salvia", hex: "#6FA293" },
+  { name: "Gran (länkar)", hex: "#2C6B52" },
+  { name: "Dis", hex: "#F7FAF7" },
+  { name: "Linje", hex: "#DCE4DF" },
 ];
 
 export default function DesignsystemPage() {
