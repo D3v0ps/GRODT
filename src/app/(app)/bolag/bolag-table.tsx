@@ -1,0 +1,358 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { EmptyState } from "@/components/empty-state";
+import { IconDownload, IconSearch } from "@/components/icons";
+import { StatusBadge } from "@/components/status-badge";
+import { AvatarWithName } from "@/components/avatar";
+import { LEAD_STATUSES } from "@/lib/constants";
+import { fmtKr, fmtNumber } from "@/lib/format";
+import {
+  PAGE_SIZE,
+  listParamsToQuery,
+  type LeadListRow,
+  type ListParams,
+  type SortKey,
+} from "@/lib/list-params";
+
+interface UserOption {
+  id: string;
+  namn: string;
+}
+
+interface Props {
+  rows: LeadListRow[];
+  total: number;
+  params: ListParams;
+  years: [number, number];
+  threshold: number;
+  orter: string[];
+  users: UserOption[];
+}
+
+const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
+  { key: "namn", label: "Bolagsnamn" },
+  { key: "ort", label: "Ort" },
+];
+
+export function BolagTable({ rows, total, params, years, threshold, orter, users }: Props) {
+  const router = useRouter();
+  const [search, setSearch] = useState(params.sok);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSearch(params.sok);
+  }, [params.sok]);
+
+  function navigate(next: Partial<ListParams>, resetPage = true) {
+    const merged: Partial<ListParams> = { ...params, ...next };
+    if (resetPage) merged.sida = 1;
+    router.push(`/bolag?${listParamsToQuery(merged).toString()}`);
+  }
+
+  function onSearchChange(value: string) {
+    setSearch(value);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => {
+      navigate({ sok: value });
+    }, 300);
+  }
+
+  function sortHref(key: SortKey): string {
+    const dir = params.sort === key && params.dir === "asc" ? "desc" : "asc";
+    const q = listParamsToQuery({ ...params, sort: key, dir, sida: 1 });
+    return `/bolag?${q.toString()}`;
+  }
+
+  function sortArrow(key: SortKey): string {
+    if (params.sort !== key) return "";
+    return params.dir === "asc" ? "▲" : "▼";
+  }
+
+  function ariaSort(key: SortKey): "ascending" | "descending" | undefined {
+    if (params.sort !== key) return undefined;
+    return params.dir === "asc" ? "ascending" : "descending";
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(params.sida, totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const exportQuery = listParamsToQuery({ ...params, sida: 1 }).toString();
+  const hasFilters =
+    params.sok !== "" || params.status || params.ort || params.ansvarig || params.oms;
+
+  const pageNumbers = buildPageWindow(page, totalPages);
+
+  return (
+    <>
+      <div className="view-head" style={{ marginBottom: 20 }}>
+        <div>
+          <h1>Bolag</h1>
+          <p className="lede">
+            SNI 78.100 · nettoomsättning ≥ {fmtKr(threshold)} för minst ett av åren{" "}
+            {years[0]}/{years[1]}
+          </p>
+        </div>
+        <div className="actions">
+          <a className="btn" href={`/api/export/csv${exportQuery ? `?${exportQuery}` : ""}`}>
+            <IconDownload />
+            Exportera CSV
+          </a>
+        </div>
+      </div>
+
+      <div className="table-shell">
+        <div className="table-toolbar">
+          <span className="search">
+            <IconSearch />
+            <input
+              className="input"
+              type="search"
+              placeholder="Sök bolag, orgnr eller ort …"
+              aria-label="Sök bolag"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </span>
+          <select
+            className="select"
+            aria-label="Filtrera på status"
+            value={params.status ?? ""}
+            onChange={(e) =>
+              navigate({ status: (e.target.value || undefined) as ListParams["status"] })
+            }
+          >
+            <option value="">Alla statusar</option>
+            {LEAD_STATUSES.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="select"
+            aria-label="Filtrera på ort"
+            value={params.ort ?? ""}
+            onChange={(e) => navigate({ ort: e.target.value || undefined })}
+          >
+            <option value="">Alla orter</option>
+            {orter.map((ort) => (
+              <option key={ort} value={ort}>
+                {ort}
+              </option>
+            ))}
+          </select>
+          <select
+            className="select"
+            aria-label="Filtrera på omsättning"
+            value={params.oms ? String(params.oms) : ""}
+            onChange={(e) =>
+              navigate({ oms: e.target.value ? Number(e.target.value) : undefined })
+            }
+          >
+            <option value="">Omsättning: alla</option>
+            <option value="5">≥ 5 mkr</option>
+            <option value="10">≥ 10 mkr</option>
+            <option value="20">≥ 20 mkr</option>
+          </select>
+          <select
+            className="select"
+            aria-label="Filtrera på ansvarig"
+            value={params.ansvarig ?? ""}
+            onChange={(e) => navigate({ ansvarig: e.target.value || undefined })}
+          >
+            <option value="">Alla ansvariga</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.namn}
+              </option>
+            ))}
+          </select>
+          <span className="spacer" />
+          <span className="result-count">{fmtNumber(total)} bolag</span>
+        </div>
+
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                {COLUMNS.slice(0, 1).map((c) => (
+                  <th key={c.key} className="sortable" aria-sort={ariaSort(c.key)}>
+                    <Link href={sortHref(c.key)}>
+                      {c.label}
+                      <span className="sort-arrow">{sortArrow(c.key)}</span>
+                    </Link>
+                  </th>
+                ))}
+                <th>Orgnr</th>
+                {COLUMNS.slice(1).map((c) => (
+                  <th key={c.key} className="sortable" aria-sort={ariaSort(c.key)}>
+                    <Link href={sortHref(c.key)}>
+                      {c.label}
+                      <span className="sort-arrow">{sortArrow(c.key)}</span>
+                    </Link>
+                  </th>
+                ))}
+                <th className="num sortable" aria-sort={ariaSort("oms1")}>
+                  <Link href={sortHref("oms1")}>
+                    Omsättning {years[0]}
+                    <span className="sort-arrow">{sortArrow("oms1")}</span>
+                  </Link>
+                </th>
+                <th className="num sortable" aria-sort={ariaSort("oms2")}>
+                  <Link href={sortHref("oms2")}>
+                    Omsättning {years[1]}
+                    <span className="sort-arrow">{sortArrow("oms2")}</span>
+                  </Link>
+                </th>
+                <th className="num sortable" aria-sort={ariaSort("anst")}>
+                  <Link href={sortHref("anst")}>
+                    Anställda
+                    <span className="sort-arrow">{sortArrow("anst")}</span>
+                  </Link>
+                </th>
+                <th>Status</th>
+                <th>Ansvarig</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ height: "auto", whiteSpace: "normal" }}>
+                    {hasFilters ? (
+                      <EmptyState
+                        title="Inga bolag matchar filtren"
+                        description="Prova att bredda sökningen eller rensa ett filter – radarn hittar inget i det här svepet."
+                        action={
+                          <Link className="btn btn-sm" href="/bolag">
+                            Rensa alla filter
+                          </Link>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        title="Radarn har inte hittat några bolag ännu"
+                        description="Importera din CSV-fil eller kör en synk under Import & synk för att fylla listan."
+                        action={
+                          <Link className="btn btn-sm" href="/synk">
+                            Till Import &amp; synk
+                          </Link>
+                        }
+                      />
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => <BolagRow key={row.lead_id} row={row} threshold={threshold} />)
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="pagination">
+          <span>
+            {rows.length === 0
+              ? ""
+              : `Visar ${fmtNumber(start + 1)}–${fmtNumber(start + rows.length)} av ${fmtNumber(total)}`}
+          </span>
+          <span className="pages">
+            {totalPages > 1 &&
+              pageNumbers.map((p, i) =>
+                p === null ? (
+                  <span key={`gap-${i}`} className="gap">
+                    …
+                  </span>
+                ) : (
+                  <Link
+                    key={p}
+                    className={p === page ? "current" : undefined}
+                    aria-label={`Sida ${p}`}
+                    aria-current={p === page ? "page" : undefined}
+                    href={`/bolag?${listParamsToQuery({ ...params, sida: p }).toString()}`}
+                  >
+                    {p}
+                  </Link>
+                ),
+              )}
+          </span>
+        </div>
+      </div>
+
+      <p className="small faint" style={{ marginTop: 10 }}>
+        Röd punkt <span className="qual-mark" style={{ margin: "0 2px" }} /> = året som
+        kvalificerar bolaget när det andra året ligger under tröskeln. Dämpade belopp
+        ligger under {fmtKr(threshold)}.
+      </p>
+    </>
+  );
+}
+
+function BolagRow({ row, threshold }: { row: LeadListRow; threshold: number }) {
+  const router = useRouter();
+  const under1 = row.oms1 === null || row.oms1 < threshold;
+  const under2 = row.oms2 === null || row.oms2 < threshold;
+  const mark1 = !under1 && under2;
+  const mark2 = !under2 && under1;
+  const underTitle = `Under tröskel ${fmtKr(threshold)}`;
+  const markTitle = "Kvalificerande år (når tröskeln)";
+
+  function open() {
+    router.push(`/bolag/${row.orgnr}`);
+  }
+
+  return (
+    <tr
+      className="clickable"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") open();
+      }}
+    >
+      <td className="namn">{row.namn}</td>
+      <td className="org mono">{row.orgnr}</td>
+      <td>{row.ort ?? "–"}</td>
+      <td className={`num${under1 ? " under" : ""}`} title={under1 ? underTitle : undefined}>
+        {row.oms1 === null ? "–" : fmtKr(row.oms1)}
+        {mark1 && <span className="qual-mark" title={markTitle} />}
+      </td>
+      <td className={`num${under2 ? " under" : ""}`} title={under2 ? underTitle : undefined}>
+        {row.oms2 === null ? "–" : fmtKr(row.oms2)}
+        {mark2 && <span className="qual-mark" title={markTitle} />}
+      </td>
+      <td className="num">{row.antal_anstallda ?? "–"}</td>
+      <td>
+        <StatusBadge status={row.status} />
+      </td>
+      <td>
+        {row.owner_id && row.owner_namn ? (
+          <AvatarWithName id={row.owner_id} namn={row.owner_namn} />
+        ) : (
+          <span className="faint small">Ej tilldelad</span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/** 1 … 4 5 [6] 7 8 … 12 – kompakt fönster runt aktuell sida. */
+function buildPageWindow(page: number, totalPages: number): (number | null)[] {
+  if (totalPages <= 9) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages]);
+  for (let p = page - 2; p <= page + 2; p++) {
+    if (p >= 1 && p <= totalPages) pages.add(p);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out: (number | null)[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push(null);
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}

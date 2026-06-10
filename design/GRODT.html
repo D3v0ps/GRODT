@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRODT – Leadverktyg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="grodt.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="login-screen" id="login" data-screen-label="Login">
+  <div class="login-rings" aria-hidden="true">
+    <svg width="720" height="720" viewBox="0 0 720 720" fill="none">
+      <circle cx="360" cy="360" r="340" stroke="#39434B" stroke-width="1"></circle>
+      <circle cx="360" cy="360" r="250" stroke="#39434B" stroke-width="1"></circle>
+      <circle cx="360" cy="360" r="160" stroke="#39434B" stroke-width="1"></circle>
+      <circle cx="510" cy="240" r="4" fill="#FF0C01"></circle>
+      <circle cx="250" cy="480" r="3" fill="#6BA2B9"></circle>
+    </svg>
+  </div>
+  <div class="login-card">
+    <div class="brandline">
+      <span data-radar="live" data-size="34" style="color:#1E252B"></span>
+      <span class="wordmark">GRODT</span>
+    </div>
+    <p class="tagline">Leadradar för rekrytering &amp; bemanning</p>
+    <form id="login-form" novalidate="novalidate">
+      <div class="field">
+        <label for="login-email">E-post</label>
+        <input class="input" type="email" id="login-email" placeholder="namn@grodt.se" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="login-pass">Lösenord</label>
+        <input class="input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+        <span class="error-text" id="login-error" style="display:none">Fel e-post eller lösenord. Försök igen.</span>
+      </div>
+      <button class="btn btn-accent" type="submit" id="login-btn" style="width:100%;padding:10px">Logga in</button>
+    </form>
+    <p class="foot">Internt verktyg. Konton skapas av administratör.</p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app" id="app" style="display:none">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <div class="brand">
+      <span data-radar="live" data-size="30" style="color:#FFFFFF"></span>
+      <span>
+        <span class="wordmark">GRODT</span>
+        <span class="sub">Leadradar</span>
+      </span>
+    </div>
+    <nav class="nav" aria-label="Huvudnavigering">
+      <a href="#/dashboard" data-route="dashboard">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="9" y="1.5" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="1.5" y="9" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="9" y="9" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.3"></rect></svg>
+        Dashboard</a>
+      <a href="#/bolag" data-route="bolag">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M2 14V5l4-2.5V14M6 14V8l4-2v8M10 14V9.5L14 8v6M1 14h14" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>
+        Bolag</a>
+      <a href="#/pipeline" data-route="pipeline">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2" width="3.4" height="12" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="6.3" y="2" width="3.4" height="8" rx="1" stroke="currentColor" stroke-width="1.3"></rect><rect x="11.1" y="2" width="3.4" height="5" rx="1" stroke="currentColor" stroke-width="1.3"></rect></svg>
+        Pipeline</a>
+      <a href="#/synk" data-route="synk">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        Import &amp; synk</a>
+      <div class="divider"></div>
+      <span class="nav-label">System</span>
+      <a href="#/admin" data-route="admin">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"></circle><path d="M1.5 13.5c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path><circle cx="11.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"></circle><path d="M11 9.6c2 .2 3.5 1.9 3.5 3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>
+        Admin</a>
+      <a href="#/installningar" data-route="installningar">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"></circle><path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8 3.4 3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>
+        Inställningar</a>
+      <div class="divider"></div>
+      <span class="nav-label">Design</span>
+      <a href="#/designsystem" data-route="designsystem">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"></circle><path d="M8 8 12 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path><circle cx="8" cy="8" r="1.2" fill="currentColor"></circle></svg>
+        Designsystem</a>
+    </nav>
+    <div class="me">
+      <span class="avatar">AL</span>
+      <span class="who">Anna Lindqvist<br><span class="role">Admin</span></span>
+      <button class="logout" id="logout-btn" title="Logga ut" aria-label="Logga ut">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 2H3.5A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14H6M10.5 11.5 14 8l-3.5-3.5M14 8H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <button class="menu-btn" id="menu-btn" aria-label="Öppna meny">☰&nbsp; GRODT</button>
+
+    <!-- ============ DASHBOARD ============ -->
+    <section class="view" data-view="dashboard" data-screen-label="Dashboard">
+      <div class="view-head">
+        <div>
+          <h1>Dashboard</h1>
+          <p class="lede">Läget i radarn just nu · uppdaterat 2026-06-10 08:15</p>
+        </div>
+        <div class="actions">
+          <a class="btn" href="#/synk">Till synk</a>
+          <a class="btn btn-primary" href="#/bolag">Öppna bolagslistan</a>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi kpi-accent">
+          <div class="kpi-label">Bolag i databasen</div>
+          <div class="kpi-value">1 247</div>
+          <div class="kpi-meta"><span class="up">+38</span> sedan senaste synk</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Nya leads att kvalificera</div>
+          <div class="kpi-value">38</div>
+          <div class="kpi-meta">Status Ny, ej tilldelade</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Aktiva dialoger</div>
+          <div class="kpi-value">284</div>
+          <div class="kpi-meta">Kontaktad–Möte</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Kunder i år</div>
+          <div class="kpi-value">23</div>
+          <div class="kpi-meta"><span class="up">+4</span> senaste 30 dagarna</div>
+        </div>
+      </div>
+      <div class="dash-grid">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div class="card">
+            <div class="card-head"><h2>Pipeline-fördelning</h2><span class="small faint">1 247 bolag</span></div>
+            <div class="card-body">
+              <div class="pipe-bar" id="pipe-bar" role="img" aria-label="Fördelning av bolag per status"></div>
+              <div class="pipe-legend" id="pipe-legend"></div>
+            </div>
+          </div>
+          <div class="radar-tile">
+            <span data-radar="live" data-size="56" style="color:#6BA2B9"></span>
+            <div>
+              <div class="label">Senaste svep</div>
+              <div class="big">2026-06-10 08:15</div>
+              <div class="meta">38 nya bolag över tröskeln 5 000 000 kr · nästa automatiska svep 2026-06-17</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Senaste aktiviteter</h2><a class="small" href="#/admin">Hela loggen</a></div>
+          <div class="card-body" style="padding-top:6px">
+            <div class="activity-list" id="dash-activity"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BOLAGSLISTA ============ -->
+    <section class="view" data-view="bolag" data-screen-label="Bolagslista">
+      <div class="view-head">
+        <div>
+          <h1>Bolag</h1>
+          <p class="lede">SNI 78.100 · nettoomsättning ≥ 5 000 000 kr för minst ett av åren 2023/2024</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="csv-btn">
+            <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M2.5 13.5h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            Exportera CSV</button>
+        </div>
+      </div>
+      <div class="table-shell">
+        <div class="table-toolbar">
+          <span class="search">
+            <svg class="icon" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"></circle><path d="m13.5 13.5-3.2-3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path></svg>
+            <input class="input" id="f-sok" type="search" placeholder="Sök bolag, orgnr eller ort …" aria-label="Sök bolag">
+          </span>
+          <select class="select" id="f-status" aria-label="Filtrera på status"></select>
+          <select class="select" id="f-ort" aria-label="Filtrera på ort"></select>
+          <select class="select" id="f-oms" aria-label="Filtrera på omsättning">
+            <option value="">Omsättning: alla</option>
+            <option value="5">≥ 5 mkr</option>
+            <option value="10">≥ 10 mkr</option>
+            <option value="20">≥ 20 mkr</option>
+          </select>
+          <select class="select" id="f-ansvarig" aria-label="Filtrera på ansvarig"></select>
+          <span class="spacer"></span>
+          <span class="result-count" id="result-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th class="sortable" data-key="namn">Bolagsnamn<span class="sort-arrow"></span></th>
+                <th>Orgnr</th>
+                <th class="sortable" data-key="ort">Ort<span class="sort-arrow"></span></th>
+                <th class="num sortable" data-key="oms1">Omsättning 2023<span class="sort-arrow"></span></th>
+                <th class="num sortable" data-key="oms2">Omsättning 2024<span class="sort-arrow"></span></th>
+                <th class="num sortable" data-key="anst">Anställda<span class="sort-arrow"></span></th>
+                <th>Status</th>
+                <th>Ansvarig</th>
+              </tr>
+            </thead>
+            <tbody id="bolag-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="page-info"></span>
+          <span class="pages" id="pages"></span>
+        </div>
+      </div>
+      <p class="small faint" style="margin-top:10px">Röd punkt <span class="qual-mark" style="margin:0 2px"></span> = året som kvalificerar bolaget när det andra året ligger under tröskeln. Dämpade belopp ligger under 5 000 000 kr.</p>
+    </section>
+
+    <!-- ============ BOLAGSDETALJ ============ -->
+    <section class="view" data-view="detalj" data-screen-label="Bolagsdetalj">
+      <button class="backlink" id="d-back">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        Tillbaka till bolagslistan</button>
+      <div class="view-head">
+        <div>
+          <h1 id="d-namn">Nordisk Bemanning AB</h1>
+          <p class="lede"><span class="mono" id="d-orgnr">556712-4830</span> · <span id="d-ort">Stockholm</span> · SNI 78.100</p>
+        </div>
+        <div class="actions">
+          <span id="d-status"></span>
+          <select class="select" id="d-status-select" aria-label="Byt status">
+            <option value="ny">Ny</option>
+            <option value="kontaktad">Kontaktad</option>
+            <option value="dialog">Dialog</option>
+            <option value="mote">Möte</option>
+            <option value="kund">Kund</option>
+            <option value="forlorad">Förlorad</option>
+          </select>
+          <select class="select" id="d-ansvarig-select" aria-label="Tilldela ansvarig">
+            <option value="">Ej tilldelad</option>
+            <option value="AL">Anna Lindqvist</option>
+            <option value="JB">Johan Berg</option>
+            <option value="SN">Sara Nyström</option>
+            <option value="ED">Erik Dahl</option>
+          </select>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div class="card">
+            <div class="card-head"><h2>Bolagsfakta</h2><span class="small faint">Källa: API · 2026-06-10</span></div>
+            <div class="card-body">
+              <div class="facts">
+                <div class="fact"><div class="k">Organisationsnummer</div><div class="v mono" id="d-orgnr2">556712-4830</div></div>
+                <div class="fact"><div class="k">Bransch</div><div class="v" id="d-sni">78.100 – Arbetsförmedling och rekrytering</div></div>
+                <div class="fact"><div class="k">Omsättning 2023</div><div class="v mono" id="d-oms1">18 400 000 kr</div></div>
+                <div class="fact"><div class="k">Omsättning 2024</div><div class="v mono" id="d-oms2">21 250 000 kr</div></div>
+                <div class="fact"><div class="k">Anställda</div><div class="v" id="d-anst">42 st</div></div>
+                <div class="fact"><div class="k">Säte</div><div class="v" id="d-ort2">Se ort ovan</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Omsättningstrend</h2><span class="small faint">Tröskel 5 000 000 kr streckad</span></div>
+            <div class="card-body" style="padding-top:30px">
+              <div class="trend" id="d-trend"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Anteckningar</h2></div>
+            <div class="card-body">
+              <div id="d-notes">
+                <div class="note">
+                  <div>Talade med vd i förra veckan – de växer i Mälardalen och utvärderar nya leverantörer av specialistrekrytering under Q3.</div>
+                  <div class="n-meta">2026-06-06 10:18 · Anna Lindqvist</div>
+                </div>
+              </div>
+              <form class="note-form" id="note-form">
+                <input class="input" id="note-input" placeholder="Skriv en anteckning …" aria-label="Ny anteckning">
+                <button class="btn btn-primary" type="submit">Spara</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Status &amp; aktivitet</h2></div>
+          <div class="card-body">
+            <div class="timeline" id="d-historik"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PIPELINE ============ -->
+    <section class="view" data-view="pipeline" data-screen-label="Pipeline">
+      <div class="view-head">
+        <div>
+          <h1>Pipeline</h1>
+          <p class="lede">Dra kort mellan kolumnerna för att byta status. Dubbelklicka för bolagsdetalj.</p>
+        </div>
+      </div>
+      <div class="kanban" id="kanban"></div>
+    </section>
+
+    <!-- ============ IMPORT & SYNK ============ -->
+    <section class="view" data-view="synk" data-screen-label="Import och synk">
+      <div class="view-head">
+        <div>
+          <h1>Import &amp; synk</h1>
+          <p class="lede">Hämtar bolag från datakällan enligt filterparametrarna nedan. Varje körning loggas.</p>
+        </div>
+        <div class="actions">
+          <span class="small faint" id="sync-status"></span>
+          <button class="btn btn-accent" id="sync-btn">
+            <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            Hämta bolag nu</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-head"><h2>Aktiva filterparametrar</h2><a class="small" href="#/installningar">Ändra i inställningar</a></div>
+        <div class="card-body">
+          <div class="sync-params">
+            <span class="param-chip"><span class="k">SNI</span> 78.100</span>
+            <span class="param-chip mono"><span class="k">Tröskel</span> ≥ 5 000 000 kr</span>
+            <span class="param-chip mono"><span class="k">Räkenskapsår</span> 2023 eller 2024</span>
+            <span class="param-chip"><span class="k">Bolagsform</span> Aktiebolag</span>
+            <span class="param-chip"><span class="k">Status</span> Aktiva bolag</span>
+          </div>
+          <p class="small faint" style="margin-top:10px">ELLER-logik på räkenskapsåren: ett bolag tas med om minst ett av åren når tröskeln, så att snabbväxare inte faller bort.</p>
+        </div>
+      </div>
+      <div class="table-shell">
+        <div class="table-toolbar"><strong style="font-size:13px">Körningshistorik</strong></div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Tidpunkt</th>
+                <th>Startad av</th>
+                <th class="num">Hämtade</th>
+                <th class="num">Nya</th>
+                <th class="num">Uppdaterade</th>
+                <th class="num">Fel</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="synk-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ADMIN ============ -->
+    <section class="view" data-view="admin" data-screen-label="Admin">
+      <div class="view-head">
+        <div>
+          <h1>Admin</h1>
+          <p class="lede">Användarhantering och global audit log.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="new-user-btn">Skapa konto</button>
+        </div>
+      </div>
+      <div class="table-shell" style="margin-bottom:14px">
+        <div class="table-toolbar"><strong style="font-size:13px">Användare</strong></div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr><th>Namn</th><th>E-post</th><th>Roll</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="admin-users"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="table-shell">
+        <div class="table-toolbar">
+          <strong style="font-size:13px">Audit log</strong>
+          <span class="spacer"></span>
+          <select class="select" aria-label="Filtrera på användare">
+            <option>Alla användare</option>
+            <option>Anna Lindqvist</option>
+            <option>Johan Berg</option>
+            <option>Sara Nyström</option>
+            <option>Erik Dahl</option>
+          </select>
+          <input class="input mono" type="date" value="2026-06-10" aria-label="Filtrera på datum" style="width:150px">
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr><th>Tidpunkt</th><th>Användare</th><th>Handling</th><th>Detalj</th></tr>
+            </thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INSTÄLLNINGAR ============ -->
+    <section class="view" data-view="installningar" data-screen-label="Inställningar">
+      <div class="view-head">
+        <div>
+          <h1>Inställningar</h1>
+          <p class="lede">Filterparametrar för synk samt datakälla.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="grodtToast('Inställningar sparade', 'ok')">Spara ändringar</button>
+        </div>
+      </div>
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-head"><h2>Filterparametrar</h2></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+            <div class="field">
+              <label for="s-sni">SNI-koder</label>
+              <input class="input mono" id="s-sni" value="78.100">
+              <span class="hint">Kommaseparerade. Fler koder ger bredare svep.</span>
+            </div>
+            <div class="field">
+              <label for="s-troskel">Minsta nettoomsättning (kr)</label>
+              <input class="input mono" id="s-troskel" value="5 000 000">
+              <span class="hint">Bolaget tas med om minst ett av räkenskapsåren når tröskeln.</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field">
+                <label for="s-ar1">Räkenskapsår 1</label>
+                <select class="select mono" id="s-ar1"><option>2022</option><option selected="selected">2023</option><option>2024</option></select>
+              </div>
+              <div class="field">
+                <label for="s-ar2">Räkenskapsår 2</label>
+                <select class="select mono" id="s-ar2"><option>2023</option><option selected="selected">2024</option><option>2025</option></select>
+              </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer">
+              <span class="switch"><input type="checkbox" checked="checked"><span class="track"></span></span>
+              Automatiskt svep varje måndag 08:00
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Datakälla</h2><span class="pill ok"><span class="dot"></span>API ansluten</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+            <div class="facts" style="grid-template-columns:1fr">
+              <div class="fact"><div class="k">Leverantör</div><div class="v">Bolagsdata Norden API v2</div></div>
+              <div class="fact"><div class="k">Senaste lyckade anrop</div><div class="v mono">2026-06-10 08:15</div></div>
+              <div class="fact"><div class="k">API-nyckel</div><div class="v mono">••••••••••••3kF9 <a href="#/installningar" onclick="grodtToast('Endast admin kan rotera nyckeln', 'info');return false">Rotera</a></div></div>
+              <div class="fact"><div class="k">Kvarvarande anrop denna månad</div><div class="v mono">8 412 / 10 000</div></div>
+            </div>
+            <div class="banner info">
+              <svg class="icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 7.5V11M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+              <span>Ändrade filterparametrar påverkar nästa svep – befintliga bolag tas aldrig bort, de markeras i stället som utanför filtret.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DESIGNSYSTEM (för handoff) ============ -->
+    <section class="view" data-view="designsystem" data-screen-label="Designsystem">
+      <div class="view-head">
+        <div>
+          <h1>Designsystem</h1>
+          <p class="lede">Levande referens för komponenter och tillstånd. Fullständiga tokens i DESIGN_SPEC.md.</p>
+        </div>
+      </div>
+
+      <div class="ds-section">
+        <h2>Palett</h2>
+        <div class="ds-row">
+          <div class="swatch"><div class="chip" style="background:#1E252B"></div><div class="s-name">Bläck</div><div class="s-hex">#1E252B</div></div>
+          <div class="swatch"><div class="chip" style="background:#FF0C01"></div><div class="s-name">Signalröd</div><div class="s-hex">#FF0C01</div></div>
+          <div class="swatch"><div class="chip" style="background:#D40A01"></div><div class="s-name">Djupröd (text)</div><div class="s-hex">#D40A01</div></div>
+          <div class="swatch"><div class="chip" style="background:#6BA2B9"></div><div class="s-name">Duvblå</div><div class="s-hex">#6BA2B9</div></div>
+          <div class="swatch"><div class="chip" style="background:#33718C"></div><div class="s-name">Fjordblå (text)</div><div class="s-hex">#33718C</div></div>
+          <div class="swatch"><div class="chip" style="background:#F8FAFC"></div><div class="s-name">Dis</div><div class="s-hex">#F8FAFC</div></div>
+          <div class="swatch"><div class="chip" style="background:#DDE4E9"></div><div class="s-name">Linje</div><div class="s-hex">#DDE4E9</div></div>
+        </div>
+      </div>
+
+      <div class="ds-section">
+        <h2>Knappar</h2>
+        <div class="ds-row">
+          <button class="btn btn-primary">Primär</button>
+          <button class="btn btn-accent">Accent (signatur)</button>
+          <button class="btn">Sekundär</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-danger">Destruktiv</button>
+          <button class="btn btn-primary" disabled="disabled">Inaktiverad</button>
+          <button class="btn btn-primary loading">Laddar</button>
+        </div>
+      </div>
+
+      <div class="ds-section">
+        <h2>Statusbadges</h2>
+        <div class="ds-row">
+          <span class="badge st-ny"><span class="dot"></span>Ny</span>
+          <span class="badge st-kontaktad"><span class="dot"></span>Kontaktad</span>
+          <span class="badge st-dialog"><span class="dot"></span>Dialog</span>
+          <span class="badge st-mote"><span class="dot"></span>Möte</span>
+          <span class="badge st-kund"><span class="dot"></span>Kund</span>
+          <span class="badge st-forlorad"><span class="dot"></span>Förlorad</span>
+        </div>
+        <p class="small faint" style="margin-top:8px">Färg + punkt + text – fungerar även utan färgseende.</p>
+      </div>
+
+      <div class="ds-section">
+        <h2>Formulärfält</h2>
+        <div class="ds-row" style="align-items:flex-start">
+          <div class="field" style="width:200px"><label>Normal</label><input class="input" placeholder="Skriv här …"></div>
+          <div class="field" style="width:200px"><label>Fel</label><input class="input" aria-invalid="true" value="ogiltigt värde"><span class="error-text">Kontrollera värdet.</span></div>
+          <div class="field" style="width:200px"><label>Inaktiverad</label><input class="input" disabled="disabled" value="Låst"></div>
+        </div>
+      </div>
+
+      <div class="ds-section">
+        <h2>Toast, dialog &amp; laddning</h2>
+        <div class="ds-row">
+          <button class="btn" data-demo-toast="Ändringen sparades" data-demo-kind="ok">Visa toast: lyckat</button>
+          <button class="btn" data-demo-toast="Kunde inte nå API:t – försök igen" data-demo-kind="err">Visa toast: fel</button>
+          <button class="btn" data-demo-toast="Export pågår i bakgrunden" data-demo-kind="info">Visa toast: info</button>
+          <button class="btn" id="demo-confirm-btn">Visa bekräftelsedialog</button>
+          <button class="btn" id="demo-skeleton-btn">Växla laddningstillstånd</button>
+        </div>
+        <div id="demo-skeleton" style="display:none;margin-top:14px" class="card">
+          <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+            <span class="skeleton" style="width:40%"></span>
+            <span class="skeleton" style="width:90%"></span>
+            <span class="skeleton" style="width:75%"></span>
+            <span class="skeleton" style="width:85%"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-section">
+        <h2>Tomt tillstånd</h2>
+        <div class="card" style="max-width:520px">
+          <div class="empty">
+            <div class="empty-icon"><span data-radar data-size="36"></span></div>
+            <h3>Inga anteckningar ännu</h3>
+            <p>Anteckningar du sparar på ett bolag visas här för hela teamet.</p>
+            <button class="btn btn-sm" data-demo-toast="Fokus flyttas till anteckningsfältet" data-demo-kind="info">Skriv första anteckningen</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ MODALER ============ -->
+<div class="modal-backdrop" id="modal-user" role="dialog" aria-modal="true" aria-labelledby="mu-title">
+  <div class="modal">
+    <div class="modal-head"><h2 id="mu-title">Skapa konto</h2></div>
+    <form>
+      <div class="modal-body">
+        <div class="field">
+          <label for="nu-namn">Namn</label>
+          <input class="input" id="nu-namn" required="required" placeholder="För- och efternamn">
+        </div>
+        <div class="field">
+          <label for="nu-email">E-post</label>
+          <input class="input" id="nu-email" type="email" required="required" placeholder="namn@grodt.se">
+        </div>
+        <div class="field">
+          <label for="nu-roll">Roll</label>
+          <select class="select" id="nu-roll">
+            <option>Användare</option>
+            <option>Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-modal>Avbryt</button>
+        <button class="btn btn-primary" type="submit">Skapa &amp; skicka inbjudan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal">
+    <div class="modal-head"><h2 id="confirm-title">Är du säker?</h2></div>
+    <div class="modal-body"><p id="confirm-body"></p></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-modal>Avbryt</button>
+      <button class="btn btn-accent" type="button" id="confirm-action">Bekräfta</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" aria-live="polite"></div>
+
+<script src="grodt-data.js"></script>
+<script src="grodt-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+import {
+  PAGE_SIZE,
+  parseListParams,
+  rpcArgs,
+  type LeadListRow,
+} from "@/lib/list-params";
+import { displayYears, getSyncFilter } from "@/lib/settings";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BolagTable } from "./bolag-table";
+
+export const metadata = { title: "Bolag – GRODT" };
+
+export default async function BolagPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = parseListParams(await searchParams);
+  const supabase = await createSupabaseServerClient();
+  const settings = await getSyncFilter(supabase);
+  const years = displayYears(settings);
+
+  const offset = (params.sida - 1) * PAGE_SIZE;
+  const [listRes, orterRes, usersRes] = await Promise.all([
+    supabase.rpc("list_leads", rpcArgs(params, years, PAGE_SIZE, offset)),
+    supabase.rpc("lead_orter"),
+    supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
+  ]);
+
+  const rows = (listRes.data ?? []) as LeadListRow[];
+  const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
+  const orter = (orterRes.data ?? []) as string[];
+  const users = usersRes.data ?? [];
+
+  return (
+    <section className="view">
+      <BolagTable
+        rows={rows}
+        total={total}
+        params={params}
+        years={years}
+        threshold={settings.revenueMinSek}
+        orter={orter}
+        users={users}
+      />
+    </section>
+  );
+}
