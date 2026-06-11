@@ -35,7 +35,12 @@ const DEFAULT_BASE_URL = "https://gw.api.bolagsverket.se/vardefulla-datamangder/
 const DEFAULT_TOKEN_URL = "https://portal.api.bolagsverket.se/oauth2/token";
 /** Max antal årsredovisningar som laddas ner per bolag (2 år per dokument). */
 const MAX_REPORTS_PER_COMPANY = 3;
-export const DEFAULT_SYNC_LIMIT = 300;
+/**
+ * Upp till ~5 API-anrop per bolag gör att körningen måste rymmas i
+ * Vercels tidsgräns (300 s) – 100 bolag per svep är säkert. Höj via
+ * BOLAGSVERKET_SYNC_LIMIT om körningarna går snabbt.
+ */
+export const DEFAULT_SYNC_LIMIT = 100;
 export const ENRICHMENT_PAGE_SIZE = 50;
 
 /** Källa för vilka orgnr som ska berikas (injiceras; DB i drift, stub i test). */
