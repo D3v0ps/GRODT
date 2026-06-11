@@ -29,9 +29,27 @@ export class InMemorySyncStore implements SyncStore {
   readonly leads = new Set<string>();
 
   async upsertCompany(company: CompanyUpsert): Promise<"created" | "updated"> {
-    const existed = this.companies.has(company.orgnr);
-    this.companies.set(company.orgnr, { ...company });
-    return existed ? "updated" : "created";
+    const existing = this.companies.get(company.orgnr);
+    if (!existing) {
+      this.companies.set(company.orgnr, { ...company });
+      return "created";
+    }
+    // Samma berikningsmerge som SupabaseSyncStore: null skriver aldrig
+    // över befintliga värden, och namn-platshållare behåller riktigt namn.
+    this.companies.set(company.orgnr, {
+      ...company,
+      namn:
+        company.namn && company.namn !== "Okänt bolagsnamn"
+          ? company.namn
+          : existing.namn,
+      sniKod: company.sniKod ?? existing.sniKod,
+      ort: company.ort ?? existing.ort,
+      adress: company.adress ?? existing.adress,
+      antalAnstallda: company.antalAnstallda ?? existing.antalAnstallda,
+      hemsida: company.hemsida ?? existing.hemsida,
+      telefon: company.telefon ?? existing.telefon,
+    });
+    return "updated";
   }
 
   async upsertFinancials(orgnr: string, rows: YearFinancials[]): Promise<void> {

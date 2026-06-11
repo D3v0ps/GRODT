@@ -9,6 +9,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { IconInfo } from "@/components/icons";
 import { AccountCard } from "./account-card";
+import { BolagsverketTest } from "./bolagsverket-test";
 import { SettingsForm } from "./settings-form";
 
 export const metadata = { title: "Inställningar – GRODT" };
@@ -36,6 +37,9 @@ export default async function InstallningarPage() {
 
   const providerName = getConfiguredProviderName();
   const apiConfigured = providerName !== null;
+  const showBolagsverketTest =
+    session?.roll === "admin" &&
+    (providerName === "bolagsverket" || !!process.env.BOLAGSVERKET_CLIENT_ID);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - 6 + i);
@@ -50,6 +54,7 @@ export default async function InstallningarPage() {
         providerName={providerName}
         apiConfigured={apiConfigured}
         lastOkRun={lastOkRun}
+        showBolagsverketTest={showBolagsverketTest}
       />
       {session && (
         <div style={{ marginTop: 14 }}>
@@ -74,6 +79,7 @@ function SettingsFormWrapper({
   providerName,
   apiConfigured,
   lastOkRun,
+  showBolagsverketTest,
 }: {
   isAdmin: boolean;
   settings: { sniCodes: string[]; revenueMinSek: number; revenueYears: number[] };
@@ -82,6 +88,7 @@ function SettingsFormWrapper({
   providerName: string | null;
   apiConfigured: boolean;
   lastOkRun: { finished_at: string | null; source: string } | null;
+  showBolagsverketTest: boolean;
 }) {
   const years = displayYears(settings);
   return (
@@ -124,14 +131,17 @@ function SettingsFormWrapper({
               </div>
             </div>
             <div className="fact">
-              <div className="k">API-nyckel</div>
+              <div className="k">API-nycklar</div>
               <div className="v mono">
                 {providerName === "tic"
-                  ? "Konfigurerad via miljövariabeln TIC_API_KEY"
-                  : "Ej tillämplig"}
+                  ? "Konfigureras via miljövariabeln TIC_API_KEY"
+                  : providerName === "bolagsverket"
+                    ? "Konfigureras via BOLAGSVERKET_CLIENT_ID/SECRET"
+                    : "Ej tillämplig"}
               </div>
             </div>
           </div>
+          {showBolagsverketTest && <BolagsverketTest />}
           <div className="banner info">
             <IconInfo />
             <span>

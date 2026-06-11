@@ -166,6 +166,7 @@ interface CompanyDataProvider {
 
 | Provider | `DATA_PROVIDER` | Beskrivning |
 |---|---|---|
+| `BolagsverketProvider` | `bolagsverket` | **Värdefulla datamängder** (öppna data, gratis). OAuth2 client credentials. Berikar befintliga bolag med myndighetsdata (namn, adress, SNI, status) och läser nettoomsättning/resultat/anställda ur digitalt inlämnade årsredovisningar (iXBRL). API:et stödjer INTE sökning – nya bolag kommer via CSV/tic; synken roterar genom beståndet, äldst synkade först (max `BOLAGSVERKET_SYNC_LIMIT`/körning, default 300). Självtest finns i Inställningar → Datakälla. |
 | `TicProvider` | `tic` | tic.io:s LENS-API (`x-api-key`). Fältmappning enligt docs.tic.io – belopp i tkr konverteras till kr. Sökningens omsättningsförfilter är grovt (senaste bokslut); den exakta ELLER-logiken körs alltid i synkmotorn. |
 | `MockProvider` | `mock` | Deterministisk testdata (~45 bolag kring tröskeln) för utveckling, seed och tester. |
 | `UcAllabolagProvider` | `uc-allabolag` | Tom stub med TODO – aktiveras om avtal med UC/Allabolag tecknas. |

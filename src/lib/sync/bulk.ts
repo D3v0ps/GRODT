@@ -41,25 +41,34 @@ export async function importBatch(
 
   const { data: existing, error: existingError } = await supabase
     .from("companies")
-    .select("orgnr")
+    .select("orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon")
     .in("orgnr", orgnrs);
   if (existingError) throw new Error(existingError.message);
-  const existingSet = new Set((existing ?? []).map((r) => r.orgnr));
+  const existingByOrgnr = new Map((existing ?? []).map((r) => [r.orgnr, r]));
+  const existingSet = new Set(existingByOrgnr.keys());
 
   const now = new Date().toISOString();
+  // Berikningsvänlig merge: tomma fält i filen skriver aldrig över
+  // befintliga värden (t.ex. bokslutsdata/kontakt från andra källor).
   const { error: companyError } = await supabase.from("companies").upsert(
-    rows.map(({ details }) => ({
-      orgnr: details.orgnr,
-      namn: details.namn,
-      sni_kod: details.sniKod,
-      ort: details.ort,
-      adress: details.adress,
-      antal_anstallda: details.antalAnstallda,
-      hemsida: details.hemsida,
-      telefon: details.telefon,
-      kalla,
-      last_synced_at: now,
-    })),
+    rows.map(({ details }) => {
+      const prev = existingByOrgnr.get(details.orgnr);
+      return {
+        orgnr: details.orgnr,
+        namn:
+          details.namn && details.namn !== "Okänt bolagsnamn"
+            ? details.namn
+            : (prev?.namn ?? details.namn),
+        sni_kod: details.sniKod ?? prev?.sni_kod ?? null,
+        ort: details.ort ?? prev?.ort ?? null,
+        adress: details.adress ?? prev?.adress ?? null,
+        antal_anstallda: details.antalAnstallda ?? prev?.antal_anstallda ?? null,
+        hemsida: details.hemsida ?? prev?.hemsida ?? null,
+        telefon: details.telefon ?? prev?.telefon ?? null,
+        kalla,
+        last_synced_at: now,
+      };
+    }),
     { onConflict: "orgnr" },
   );
   if (companyError) throw new Error(companyError.message);

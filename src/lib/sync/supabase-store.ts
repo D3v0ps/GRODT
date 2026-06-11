@@ -14,21 +14,28 @@ export class SupabaseSyncStore implements SyncStore {
   async upsertCompany(company: CompanyUpsert): Promise<"created" | "updated"> {
     const { data: existing, error: selectError } = await this.supabase
       .from("companies")
-      .select("orgnr")
+      .select("orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon")
       .eq("orgnr", company.orgnr)
       .maybeSingle();
     if (selectError) throw new Error(selectError.message);
 
+    // Berikningsvänlig merge: källor som saknar ett fält (t.ex. Bolagsverket
+    // har inte hemsida/telefon/anställda) skriver aldrig över befintliga
+    // värden med null.
+    const namn =
+      company.namn && company.namn !== "Okänt bolagsnamn"
+        ? company.namn
+        : (existing?.namn ?? company.namn);
     const { error } = await this.supabase.from("companies").upsert(
       {
         orgnr: company.orgnr,
-        namn: company.namn,
-        sni_kod: company.sniKod,
-        ort: company.ort,
-        adress: company.adress,
-        antal_anstallda: company.antalAnstallda,
-        hemsida: company.hemsida,
-        telefon: company.telefon,
+        namn,
+        sni_kod: company.sniKod ?? existing?.sni_kod ?? null,
+        ort: company.ort ?? existing?.ort ?? null,
+        adress: company.adress ?? existing?.adress ?? null,
+        antal_anstallda: company.antalAnstallda ?? existing?.antal_anstallda ?? null,
+        hemsida: company.hemsida ?? existing?.hemsida ?? null,
+        telefon: company.telefon ?? existing?.telefon ?? null,
         kalla: company.kalla,
         last_synced_at: new Date().toISOString(),
       },
