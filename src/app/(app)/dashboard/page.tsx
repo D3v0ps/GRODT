@@ -35,6 +35,7 @@ export default async function DashboardPage() {
     customerStatsRes,
     lastRunRes,
     autoSync,
+    activities,
   ] = await Promise.all([
     supabase.from("companies").select("orgnr", { count: "exact", head: true }),
     supabase.rpc("lead_status_counts"),
@@ -51,6 +52,7 @@ export default async function DashboardPage() {
       .order("finished_at", { ascending: false })
       .limit(1),
     getAutoSyncEnabled(supabase),
+    fetchActivities({ limit: 6 }),
   ]);
 
   const companyCount = companiesRes.count ?? 0;
@@ -70,8 +72,6 @@ export default async function DashboardPage() {
   const customers = Number(customerStats?.totalt ?? 0);
   const totalRevenue = Number(customerStats?.intjanat_totalt ?? 0);
   const lastRun = lastRunRes.data?.[0] ?? null;
-
-  const activities = await fetchActivities({ limit: 6 });
 
   return (
     <section className="view">

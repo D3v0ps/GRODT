@@ -39,6 +39,7 @@ export function actionLabel(action: string): string {
     case "roll_andrad":
     case "losenord_bytt":
     case "losenord_aterstallt":
+    case "profilbild_andrad":
       return "Användare";
     case "installningar_andrade":
       return "Inställningar";
@@ -84,6 +85,8 @@ export function activityDetail(action: string, payload: Payload): string {
       return "Bytte sitt lösenord";
     case "losenord_aterstallt":
       return `Återställde lösenordet för ${namn}`;
+    case "profilbild_andrad":
+      return str(payload, "borttagen") === "ja" ? "Tog bort sin profilbild" : "Bytte profilbild";
     case "installningar_andrade":
       return str(payload, "beskrivning") || "Uppdaterade filterparametrarna";
     case "kund_overlamnad": {
@@ -139,6 +142,8 @@ export function activityFeedText(action: string, payload: Payload): string {
       return "bytte sitt lösenord";
     case "losenord_aterstallt":
       return `återställde lösenordet för ${namn}`;
+    case "profilbild_andrad":
+      return str(payload, "borttagen") === "ja" ? "tog bort sin profilbild" : "bytte profilbild";
     case "installningar_andrade":
       return "uppdaterade inställningarna";
     case "kund_overlamnad": {

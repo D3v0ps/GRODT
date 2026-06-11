@@ -21,13 +21,18 @@ export default async function InstallningarPage() {
     getAutoSyncEnabled(supabase),
   ]);
 
-  const { data: lastOkRun } = await supabase
-    .from("import_runs")
-    .select("finished_at, source")
-    .eq("status", "ok")
-    .order("finished_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: lastOkRun }, { data: ownProfile }] = await Promise.all([
+    supabase
+      .from("import_runs")
+      .select("finished_at, source")
+      .eq("status", "ok")
+      .order("finished_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    session
+      ? supabase.from("profiles").select("avatar_url").eq("id", session.userId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const providerName = getConfiguredProviderName();
   const apiConfigured = providerName !== null;
@@ -48,7 +53,13 @@ export default async function InstallningarPage() {
       />
       {session && (
         <div style={{ marginTop: 14 }}>
-          <AccountCard namn={session.namn} email={session.email} roll={session.roll} />
+          <AccountCard
+            userId={session.userId}
+            namn={session.namn}
+            email={session.email}
+            roll={session.roll}
+            avatarUrl={ownProfile?.avatar_url ?? null}
+          />
         </div>
       )}
     </section>

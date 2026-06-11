@@ -227,6 +227,7 @@ button { font-family: var(--font-ui); }
 .avatar.a2 { background: #C8861A; color: #3B2800; }
 .avatar.a3 { background: #7B6DC2; color: #FFFFFF; }
 .avatar.a4 { background: #2E9A57; color: #FFFFFF; }
+img.avatar-img { object-fit: cover; background: var(--line-soft); }
 
 /* ============ Innehåll ============ */
 .main { min-width: 0; }

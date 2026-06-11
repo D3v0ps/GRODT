@@ -27,6 +27,7 @@ export type ActivityAction =
   | "roll_andrad"
   | "losenord_bytt"
   | "losenord_aterstallt"
+  | "profilbild_andrad"
   | "installningar_andrade"
   | "kund_overlamnad"
   | "kund_skapad"

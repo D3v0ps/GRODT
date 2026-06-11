@@ -32,7 +32,17 @@ export default async function BolagDetaljPage({
   const orgnr = decodeURIComponent(rawOrgnr);
   const supabase = await createSupabaseServerClient();
 
-  const [companyRes, settings] = await Promise.all([
+  // Allt är nyckelbart på orgnr → en enda parallell omgång databasanrop.
+  const [
+    companyRes,
+    settings,
+    financialsRes,
+    leadRes,
+    usersRes,
+    customerRes,
+    notesRes,
+    activities,
+  ] = await Promise.all([
     supabase
       .from("companies")
       .select(
@@ -41,12 +51,6 @@ export default async function BolagDetaljPage({
       .eq("orgnr", orgnr)
       .maybeSingle(),
     getSyncFilter(supabase),
-  ]);
-  const company = companyRes.data;
-  if (!company) notFound();
-
-  const years = displayYears(settings);
-  const [financialsRes, leadRes, usersRes, customerRes] = await Promise.all([
     supabase
       .from("company_financials")
       .select("year, revenue_sek, profit_sek, employees")
@@ -59,24 +63,23 @@ export default async function BolagDetaljPage({
       .maybeSingle(),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
     supabase.from("customers").select("id").eq("orgnr", orgnr).maybeSingle(),
+    supabase
+      .from("notes")
+      .select("id, body, created_at, profiles(namn), leads!inner(orgnr)")
+      .eq("leads.orgnr", orgnr)
+      .order("created_at", { ascending: false }),
+    fetchActivities({ entityType: "lead", entityId: orgnr, limit: 30 }),
   ]);
 
+  const company = companyRes.data;
+  if (!company) notFound();
+
+  const years = displayYears(settings);
   const financials = financialsRes.data ?? [];
   const lead = leadRes.data ?? null;
   const users = usersRes.data ?? [];
   const customer = customerRes.data ?? null;
-
-  const [notesRes, activities] = await Promise.all([
-    lead
-      ? supabase
-          .from("notes")
-          .select("id, body, created_at, profiles(namn)")
-          .eq("lead_id", lead.id)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as NoteRow[] }),
-    fetchActivities({ entityType: "lead", entityId: orgnr, limit: 30 }),
-  ]);
-  const notes = (notesRes.data ?? []) as NoteRow[];
+  const notes = (notesRes.data ?? []) as unknown as NoteRow[];
 
   const omsByYear = new Map(financials.map((f) => [f.year, f.revenue_sek]));
   const oms1 = omsByYear.get(years[0]) ?? null;

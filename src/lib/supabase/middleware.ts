@@ -4,10 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Sessionshantering + åtkomstskydd i middleware.
  *
- * - Oinloggade användare ser endast /login.
- * - Inloggade som saknar aktiv profil loggas ut direkt (inaktiverat konto
- *   stängs alltså ute på nästa request, oavsett giltig session).
- * - Inloggade som besöker /login skickas till dashboarden.
+ * Prestanda: getClaims() validerar JWT:n lokalt (JWKS cachas) i stället
+ * för att fråga Auth-servern på varje request – middleware kostar därmed
+ * ~0 ms i normalfallet och förnyar sessionen endast när den gått ut.
+ *
+ * Aktiv-profil-kontrollen görs i server-lagret ((app)/layout +
+ * getSessionProfile på varje sidrendering). Inaktivering spärrar dessutom
+ * kontot i Auth (ban), så sessionen kan inte förnyas.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -33,10 +36,9 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // VIKTIGT: getUser() validerar mot Supabase Auth – lita aldrig på enbart cookien.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Lokal JWT-validering; förnyar sessionen via refresh token vid behov.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims ?? null;
 
   const path = request.nextUrl.pathname;
   const isLoginPage = path === "/login";
@@ -46,26 +48,15 @@ export async function updateSession(request: NextRequest) {
     url.pathname = pathname;
     url.search = search;
     const redirect = NextResponse.redirect(url);
-    // Cookie-uppdateringar (t.ex. utloggning) måste följa med redirecten.
+    // Cookie-uppdateringar (t.ex. förnyad session) måste följa med redirecten.
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirect.cookies.set(cookie.name, cookie.value);
     });
     return redirect;
   };
 
-  if (!user) {
+  if (!claims) {
     return isLoginPage ? supabaseResponse : redirectTo("/login");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("aktiv")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile?.aktiv) {
-    await supabase.auth.signOut();
-    return redirectTo("/login", "?reason=inaktiverad");
   }
 
   if (isLoginPage) {

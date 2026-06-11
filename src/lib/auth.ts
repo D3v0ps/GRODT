@@ -8,18 +8,23 @@ export interface SessionProfile {
   roll: Roll;
 }
 
-/** Inloggad användare med aktiv profil, annars null. */
+/**
+ * Inloggad användare med aktiv profil, annars null.
+ *
+ * JWT:n valideras lokalt (getClaims, ingen nätverksrunda); profilfrågan
+ * är den enda databasträffen och fungerar samtidigt som spärr för
+ * inaktiverade konton på varje sidrendering.
+ */
 export async function getSessionProfile(): Promise<SessionProfile | null> {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims ?? null;
+  if (!claims?.sub) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("namn, roll, aktiv")
-    .eq("id", user.id)
+    .eq("id", claims.sub)
     .maybeSingle();
 
   if (!profile?.aktiv) return null;
@@ -28,8 +33,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
       ? profile.roll
       : "saljare";
   return {
-    userId: user.id,
-    email: user.email ?? "",
+    userId: claims.sub,
+    email: typeof claims.email === "string" ? claims.email : "",
     namn: profile.namn,
     roll,
   };

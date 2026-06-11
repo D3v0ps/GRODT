@@ -29,25 +29,16 @@ export default async function KundDetaljPage({
   if (!z.uuid().safeParse(id).success) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const { data: customer } = await supabase
-    .from("customers")
-    .select(
-      "id, orgnr, status, controller_id, saljare_id, overlamnad_at, companies(namn, ort, sni_kod), saljare:profiles!customers_saljare_id_fkey(namn), controller:profiles!customers_controller_id_fkey(namn)",
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (!customer) notFound();
 
-  const companies = customer.companies as
-    | { namn: string; ort: string | null; sni_kod: string | null }
-    | { namn: string; ort: string | null; sni_kod: string | null }[]
-    | null;
-  const company = Array.isArray(companies) ? companies[0] : companies;
-  const namn = company?.namn ?? customer.orgnr;
-  const saljareNamn = profileName(customer.saljare as ProfileRef | ProfileRef[] | null);
-  const controllerNamn = profileName(customer.controller as ProfileRef | ProfileRef[] | null);
-
-  const [revenuesRes, notesRes, usersRes, activities] = await Promise.all([
+  // Allt utom aktiviteterna är nyckelbart på id → en parallell omgång.
+  const [customerRes, revenuesRes, notesRes, usersRes] = await Promise.all([
+    supabase
+      .from("customers")
+      .select(
+        "id, orgnr, status, controller_id, saljare_id, overlamnad_at, companies(namn, ort, sni_kod), saljare:profiles!customers_saljare_id_fkey(namn), controller:profiles!customers_controller_id_fkey(namn)",
+      )
+      .eq("id", id)
+      .maybeSingle(),
     supabase
       .from("customer_revenues")
       .select("id, amount_sek, beskrivning, datum, created_at, profiles(namn)")
@@ -60,8 +51,25 @@ export default async function KundDetaljPage({
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
-    fetchActivities({ entityType: "kund", entityId: customer.orgnr, limit: 30 }),
   ]);
+
+  const customer = customerRes.data;
+  if (!customer) notFound();
+
+  const companies = customer.companies as
+    | { namn: string; ort: string | null; sni_kod: string | null }
+    | { namn: string; ort: string | null; sni_kod: string | null }[]
+    | null;
+  const company = Array.isArray(companies) ? companies[0] : companies;
+  const namn = company?.namn ?? customer.orgnr;
+  const saljareNamn = profileName(customer.saljare as ProfileRef | ProfileRef[] | null);
+  const controllerNamn = profileName(customer.controller as ProfileRef | ProfileRef[] | null);
+
+  const activities = await fetchActivities({
+    entityType: "kund",
+    entityId: customer.orgnr,
+    limit: 30,
+  });
 
   const revenues = revenuesRes.data ?? [];
   const notes = notesRes.data ?? [];
