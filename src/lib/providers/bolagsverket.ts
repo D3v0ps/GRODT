@@ -41,11 +41,16 @@ const DEFAULT_SCOPE = "vardefulla-datamangder:read vardefulla-datamangder:ping";
 /** Max antal årsredovisningar som laddas ner per bolag (2 år per dokument). */
 const MAX_REPORTS_PER_COMPANY = 3;
 /**
- * Upp till ~5 API-anrop per bolag gör att körningen måste rymmas i
- * Vercels tidsgräns (300 s) – 100 bolag per svep är säkert. Höj via
- * BOLAGSVERKET_SYNC_LIMIT om körningarna går snabbt.
+ * Upp till ~5 API-anrop per bolag, pacade till ~90 anrop/min för att
+ * respektera Bolagsverkets kvot, måste rymmas i Vercels tidsgräns
+ * (300 s) – 40 bolag per svep är säkert. Höj via BOLAGSVERKET_SYNC_LIMIT
+ * om er kvot tillåter.
  */
-export const DEFAULT_SYNC_LIMIT = 100;
+export const DEFAULT_SYNC_LIMIT = 40;
+/** ~90 anrop/min – under Bolagsverkets kvotnivå på 100/min. */
+const MIN_REQUEST_INTERVAL_MS = 670;
+const RATE_LIMIT_RETRY_DELAY_MS = 15_000;
+const RATE_LIMIT_MAX_RETRIES = 2;
 export const ENRICHMENT_PAGE_SIZE = 50;
 
 /** Källa för vilka orgnr som ska berikas (injiceras; DB i drift, stub i test). */
@@ -119,6 +124,7 @@ export class BolagsverketProvider implements CompanyDataProvider {
   private readonly syncLimit: number;
   private readonly orgnrSource: OrgnrSource | null;
   private token: { value: string; expiresAt: number } | null = null;
+  private lastRequestAt = 0;
 
   private readonly scope: string;
 
@@ -188,34 +194,51 @@ export class BolagsverketProvider implements CompanyDataProvider {
     return this.token.value;
   }
 
+  /** Jämn anropstakt så att Bolagsverkets minutkvot inte överskrids. */
+  private async throttle(): Promise<void> {
+    const wait = this.lastRequestAt + MIN_REQUEST_INTERVAL_MS - Date.now();
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+    this.lastRequestAt = Date.now();
+  }
+
   private async request(path: string, init?: RequestInit): Promise<Response> {
-    const token = await this.getToken();
-    let res: Response;
-    try {
-      res = await fetch(this.baseUrl + path, {
-        ...init,
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: "*/*",
-          "x-request-id": crypto.randomUUID(),
-          ...(init?.body ? { "content-type": "application/json" } : {}),
-          ...init?.headers,
-        },
-        cache: "no-store",
-      });
-    } catch (e) {
-      throw new ProviderError(
-        `Kunde inte nå Bolagsverket (${path}): ${e instanceof Error ? e.message : e}`,
-        this.name,
-      );
+    for (let attempt = 0; ; attempt++) {
+      await this.throttle();
+      const token = await this.getToken();
+      let res: Response;
+      try {
+        res = await fetch(this.baseUrl + path, {
+          ...init,
+          headers: {
+            authorization: `Bearer ${token}`,
+            accept: "*/*",
+            "x-request-id": crypto.randomUUID(),
+            ...(init?.body ? { "content-type": "application/json" } : {}),
+            ...init?.headers,
+          },
+          cache: "no-store",
+        });
+      } catch (e) {
+        throw new ProviderError(
+          `Kunde inte nå Bolagsverket (${path}): ${e instanceof Error ? e.message : e}`,
+          this.name,
+        );
+      }
+      if (res.status === 429 && attempt < RATE_LIMIT_MAX_RETRIES) {
+        // Kvoten nås ändå ibland (t.ex. parallella körningar) – backa och försök igen.
+        await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RETRY_DELAY_MS));
+        continue;
+      }
+      if (res.status === 429) {
+        throw new ProviderError(
+          "Bolagsverket svarar 429 (för många anrop) – kvoten är slut för stunden, nästa svep tar vid där detta slutade",
+          this.name,
+        );
+      }
+      return res;
     }
-    if (res.status === 429) {
-      throw new ProviderError(
-        "Bolagsverket svarar 429 (för många anrop) – sänk BOLAGSVERKET_SYNC_LIMIT eller vänta",
-        this.name,
-      );
-    }
-    return res;
   }
 
   /**
