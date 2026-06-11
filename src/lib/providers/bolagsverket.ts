@@ -33,6 +33,11 @@ import { ProviderError } from "./types";
 
 const DEFAULT_BASE_URL = "https://gw.api.bolagsverket.se/vardefulla-datamangder/v1";
 const DEFAULT_TOKEN_URL = "https://portal.api.bolagsverket.se/oauth2/token";
+/**
+ * Scope krävs enligt API-specen – utan den svarar gatewayen 403 trots
+ * giltig token. Kan överstyras med BOLAGSVERKET_SCOPE.
+ */
+const DEFAULT_SCOPE = "vardefulla-datamangder:read vardefulla-datamangder:ping";
 /** Max antal årsredovisningar som laddas ner per bolag (2 år per dokument). */
 const MAX_REPORTS_PER_COMPANY = 3;
 /**
@@ -115,11 +120,14 @@ export class BolagsverketProvider implements CompanyDataProvider {
   private readonly orgnrSource: OrgnrSource | null;
   private token: { value: string; expiresAt: number } | null = null;
 
+  private readonly scope: string;
+
   constructor(opts: {
     clientId: string;
     clientSecret: string;
     baseUrl?: string;
     tokenUrl?: string;
+    scope?: string;
     syncLimit?: number;
     orgnrSource?: OrgnrSource;
   }) {
@@ -133,6 +141,7 @@ export class BolagsverketProvider implements CompanyDataProvider {
     this.clientSecret = opts.clientSecret;
     this.baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
     this.tokenUrl = opts.tokenUrl ?? DEFAULT_TOKEN_URL;
+    this.scope = opts.scope ?? DEFAULT_SCOPE;
     this.syncLimit = opts.syncLimit ?? DEFAULT_SYNC_LIMIT;
     this.orgnrSource = opts.orgnrSource ?? null;
   }
@@ -150,7 +159,10 @@ export class BolagsverketProvider implements CompanyDataProvider {
           authorization: `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64")}`,
           "content-type": "application/x-www-form-urlencoded",
         },
-        body: "grant_type=client_credentials",
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          scope: this.scope,
+        }).toString(),
         cache: "no-store",
       });
     } catch (e) {
@@ -185,6 +197,7 @@ export class BolagsverketProvider implements CompanyDataProvider {
         headers: {
           authorization: `Bearer ${token}`,
           accept: "*/*",
+          "x-request-id": crypto.randomUUID(),
           ...(init?.body ? { "content-type": "application/json" } : {}),
           ...init?.headers,
         },

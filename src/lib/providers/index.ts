@@ -100,6 +100,7 @@ export async function createBolagsverketProvider(opts?: {
     clientSecret: clientSecret ?? "",
     baseUrl: process.env.BOLAGSVERKET_BASE_URL,
     tokenUrl: process.env.BOLAGSVERKET_TOKEN_URL,
+    scope: process.env.BOLAGSVERKET_SCOPE,
     syncLimit,
     orgnrSource:
       opts?.withOrgnrSource === false ? undefined : databaseOrgnrSource(syncLimit),
