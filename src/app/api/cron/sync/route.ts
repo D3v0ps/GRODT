@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getConfiguredProviderName } from "@/lib/providers";
+import { getEffectiveProviderName } from "@/lib/providers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getAutoSyncEnabled } from "@/lib/settings";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -30,17 +30,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const admin = createSupabaseAdminClient();
+
   // CSV-läge: ingen API-leverantör konfigurerad är ett normalt drifttillstånd,
   // inte ett fel – cronen ska inte larma varje vecka.
-  if (getConfiguredProviderName() === null) {
+  if ((await getEffectiveProviderName(admin)) === null) {
     return NextResponse.json({
       ok: true,
       skipped:
-        "Ingen dataleverantör är konfigurerad (DATA_PROVIDER) – bolag importeras via CSV. Cronen hoppade över synken.",
+        "Ingen dataleverantör är konfigurerad – bolag importeras via CSV. Cronen hoppade över synken.",
     });
   }
-
-  const admin = createSupabaseAdminClient();
   if (!(await getAutoSyncEnabled(admin))) {
     return NextResponse.json({ ok: true, skipped: "Automatiskt svep är avstängt i Inställningar" });
   }

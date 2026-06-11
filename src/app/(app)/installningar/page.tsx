@@ -1,6 +1,6 @@
 import { getSessionProfile } from "@/lib/auth";
 import { fmtDateTime } from "@/lib/format";
-import { getConfiguredProviderName, providerLabel } from "@/lib/providers";
+import { getEffectiveProviderName, providerLabel } from "@/lib/providers";
 import {
   displayYears,
   getAutoSyncEnabled,
@@ -35,7 +35,7 @@ export default async function InstallningarPage() {
       : Promise.resolve({ data: null }),
   ]);
 
-  const providerName = getConfiguredProviderName();
+  const providerName = await getEffectiveProviderName(supabase);
   const apiConfigured = providerName !== null;
   const showBolagsverketTest =
     session?.roll === "admin" &&

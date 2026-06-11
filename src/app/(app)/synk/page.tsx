@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fmtDateTime, fmtKr, fmtNumber } from "@/lib/format";
-import { getConfiguredProviderName, providerLabel } from "@/lib/providers";
+import { getEffectiveProviderName, providerLabel } from "@/lib/providers";
 import { getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
@@ -26,8 +26,10 @@ interface RunRow {
 
 export default async function SynkPage() {
   const supabase = await createSupabaseServerClient();
-  const settings = await getSyncFilter(supabase);
-  const providerName = getConfiguredProviderName();
+  const [settings, providerName] = await Promise.all([
+    getSyncFilter(supabase),
+    getEffectiveProviderName(supabase),
+  ]);
 
   const { data: runsData } = await supabase
     .from("import_runs")

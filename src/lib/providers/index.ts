@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSecretWithEnvOverride } from "@/lib/secrets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   BolagsverketProvider,
@@ -11,22 +13,43 @@ import type { CompanyDataProvider } from "./types";
 
 export type ProviderName = "tic" | "mock" | "uc-allabolag" | "bolagsverket";
 
+function parseProviderName(raw: string): ProviderName | null {
+  const name = raw.trim().toLowerCase();
+  if (name === "tic" || name === "mock" || name === "uc-allabolag" || name === "bolagsverket") {
+    return name;
+  }
+  return null;
+}
+
 /**
- * DATA_PROVIDER styr vilken källa API-synken använder:
+ * Datakälla för API-synken, i prioritetsordning:
+ *   1. Miljövariabeln DATA_PROVIDER
+ *   2. app_settings-nyckeln 'data_provider' ({"name": "..."}), så att
+ *      källan kan aktiveras utan ny deploy
+ *
  *   bolagsverket  Värdefulla datamängder – berikar BEFINTLIGA bolag med
  *                 myndighetsdata + bokslut ur digitala årsredovisningar
  *                 (API:et stödjer inte prospektering/sökning)
- *   tic           tic.io (kräver TIC_API_KEY) – stödjer SNI-prospektering
- *   mock          deterministisk testdata – endast för utveckling/test
+ *   tic           tic.io (stödjer SNI-prospektering)
+ *   mock          deterministisk testdata – endast utveckling/test
  *   uc-allabolag  stub, kräver avtal med UC
- *   (tom)         ingen API-synk konfigurerad – data importeras via CSV
  */
 export function getConfiguredProviderName(): ProviderName | null {
-  const raw = (process.env.DATA_PROVIDER ?? "").trim().toLowerCase();
-  if (raw === "tic" || raw === "mock" || raw === "uc-allabolag" || raw === "bolagsverket") {
-    return raw;
-  }
-  return null;
+  return parseProviderName(process.env.DATA_PROVIDER ?? "");
+}
+
+export async function getEffectiveProviderName(
+  supabase: SupabaseClient,
+): Promise<ProviderName | null> {
+  const fromEnv = getConfiguredProviderName();
+  if (fromEnv) return fromEnv;
+  const { data } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "data_provider")
+    .maybeSingle();
+  const name = (data?.value as { name?: unknown } | null)?.name;
+  return typeof name === "string" ? parseProviderName(name) : null;
 }
 
 function bolagsverketSyncLimit(): number {
@@ -64,13 +87,17 @@ function databaseOrgnrSource(syncLimit: number): OrgnrSource {
   };
 }
 
-export function createBolagsverketProvider(opts?: {
+export async function createBolagsverketProvider(opts?: {
   withOrgnrSource?: boolean;
-}): BolagsverketProvider {
+}): Promise<BolagsverketProvider> {
   const syncLimit = bolagsverketSyncLimit();
+  const [clientId, clientSecret] = await Promise.all([
+    getSecretWithEnvOverride("BOLAGSVERKET_CLIENT_ID", "bolagsverket_client_id"),
+    getSecretWithEnvOverride("BOLAGSVERKET_CLIENT_SECRET", "bolagsverket_client_secret"),
+  ]);
   return new BolagsverketProvider({
-    clientId: process.env.BOLAGSVERKET_CLIENT_ID ?? "",
-    clientSecret: process.env.BOLAGSVERKET_CLIENT_SECRET ?? "",
+    clientId: clientId ?? "",
+    clientSecret: clientSecret ?? "",
     baseUrl: process.env.BOLAGSVERKET_BASE_URL,
     tokenUrl: process.env.BOLAGSVERKET_TOKEN_URL,
     syncLimit,
@@ -79,13 +106,20 @@ export function createBolagsverketProvider(opts?: {
   });
 }
 
-export function createProvider(name: ProviderName): CompanyDataProvider {
+/** Provider enligt effektiv konfiguration (env → app_settings → valv). */
+export async function resolveProvider(
+  supabase: SupabaseClient,
+): Promise<CompanyDataProvider | null> {
+  const name = await getEffectiveProviderName(supabase);
+  if (!name) return null;
   switch (name) {
-    case "tic":
+    case "tic": {
+      const apiKey = await getSecretWithEnvOverride("TIC_API_KEY", "tic_api_key");
       return new TicProvider({
-        apiKey: process.env.TIC_API_KEY ?? "",
+        apiKey: apiKey ?? "",
         baseUrl: process.env.TIC_API_BASE_URL,
       });
+    }
     case "mock":
       return new MockProvider();
     case "uc-allabolag":
@@ -93,12 +127,6 @@ export function createProvider(name: ProviderName): CompanyDataProvider {
     case "bolagsverket":
       return createBolagsverketProvider();
   }
-}
-
-/** Provider enligt DATA_PROVIDER, eller null om ingen är konfigurerad. */
-export function getConfiguredProvider(): CompanyDataProvider | null {
-  const name = getConfiguredProviderName();
-  return name ? createProvider(name) : null;
 }
 
 export function providerLabel(name: string | null): string {

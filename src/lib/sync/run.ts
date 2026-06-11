@@ -1,5 +1,5 @@
 import { logActivity } from "@/lib/activity";
-import { getConfiguredProvider } from "@/lib/providers";
+import { resolveProvider } from "@/lib/providers";
 import type { CompanyDataProvider } from "@/lib/providers/types";
 import { getSyncFilter } from "@/lib/settings";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -29,16 +29,15 @@ const STALE_RUN_MINUTES = 15;
 export async function performSync(
   options: PerformSyncOptions,
 ): Promise<PerformSyncOutcome> {
-  const provider = options.provider ?? getConfiguredProvider();
+  const admin = createSupabaseAdminClient();
+  const provider = options.provider ?? (await resolveProvider(admin));
   if (!provider) {
     return {
       ok: false,
       message:
-        "Ingen dataleverantör är konfigurerad (DATA_PROVIDER). Importera bolag via CSV i Import & synk, eller konfigurera tic.io.",
+        "Ingen dataleverantör är konfigurerad. Importera bolag via CSV i Import & synk, eller aktivera Bolagsverket/tic.io.",
     };
   }
-
-  const admin = createSupabaseAdminClient();
 
   // Databasvakt mot parallella körningar.
   const staleCutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60_000).toISOString();
