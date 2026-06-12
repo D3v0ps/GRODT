@@ -6,8 +6,12 @@ interface TrendYear {
 }
 
 /**
- * Omsättningstrend med tröskellinjen som streckad röd linje – designens
+ * Omsättningstrend med tröskellinjen som streckad linje – designens
  * signaturvisualisering. Staplar under tröskeln dämpas.
+ *
+ * Strukturen har en separat rityta (.trend-plot) så att tröskellinjen
+ * positioneras mot stapelns skala – aldrig över årsetiketterna, som
+ * ligger i en egen rad under ritytan.
  */
 export function TrendChart({
   years,
@@ -21,25 +25,33 @@ export function TrendChart({
 
   return (
     <div className="trend">
-      <div className="threshold" style={{ bottom: `${(threshold / max) * 100}%` }}>
-        <span className="t-label">{fmtMkr(threshold)}</span>
+      <div className="trend-plot">
+        {years.map((y) => {
+          const value = y.revenueSek;
+          const height = value === null ? 0 : Math.max(2, (value / max) * 100);
+          const under = value === null || value < threshold;
+          return (
+            <div className="bar-col" key={y.year}>
+              <span className="val">{value === null ? "–" : fmtMkr(value)}</span>
+              <div
+                className={`bar${under ? " under-bar" : ""}`}
+                style={{ height: `${height}%` }}
+                title={value === null ? "Uppgift saknas" : fmtKr(value)}
+              />
+            </div>
+          );
+        })}
+        <div className="threshold" style={{ bottom: `${(threshold / max) * 100}%` }}>
+          <span className="t-label">{fmtMkr(threshold)}</span>
+        </div>
       </div>
-      {years.map((y) => {
-        const value = y.revenueSek;
-        const height = value === null ? 0 : Math.max(3, (value / max) * 100);
-        const under = value === null || value < threshold;
-        return (
-          <div className="bar-col" key={y.year}>
-            <span className="val">{value === null ? "–" : fmtMkr(value)}</span>
-            <div
-              className={`bar${under ? " under-bar" : ""}`}
-              style={{ height: `${height}%` }}
-              title={value === null ? "Uppgift saknas" : fmtKr(value)}
-            />
-            <span className="yr">{y.year}</span>
-          </div>
-        );
-      })}
+      <div className="trend-years">
+        {years.map((y) => (
+          <span className="yr" key={y.year}>
+            {y.year}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

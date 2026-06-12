@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
+import { getSessionProfile } from "@/lib/auth";
 import { sniLabel } from "@/lib/constants";
 import { fmtDate, fmtDateTime, fmtKr, fmtPercent } from "@/lib/format";
 import { providerLabel } from "@/lib/providers";
@@ -10,6 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { IconBack, IconError, IconInfo } from "@/components/icons";
 import { DetailActions } from "./detail-actions";
+import { FollowUpCard } from "./follow-up-card";
 import { HandoffPanel } from "./handoff-panel";
 import { NoteForm } from "./note-form";
 import { TrendChart } from "./trend-chart";
@@ -23,6 +25,15 @@ interface NoteRow {
   profiles: { namn: string } | { namn: string }[] | null;
 }
 
+interface ProfileRef {
+  namn: string;
+}
+
+function profileName(value: ProfileRef | ProfileRef[] | null | undefined): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0]?.namn ?? null) : value.namn;
+}
+
 export default async function BolagDetaljPage({
   params,
 }: {
@@ -34,6 +45,7 @@ export default async function BolagDetaljPage({
 
   // Allt är nyckelbart på orgnr → en enda parallell omgång databasanrop.
   const [
+    session,
     companyRes,
     settings,
     financialsRes,
@@ -43,6 +55,7 @@ export default async function BolagDetaljPage({
     notesRes,
     activities,
   ] = await Promise.all([
+    getSessionProfile(),
     supabase
       .from("companies")
       .select(
@@ -58,7 +71,9 @@ export default async function BolagDetaljPage({
       .order("year"),
     supabase
       .from("leads")
-      .select("id, status, owner_id")
+      .select(
+        "id, status, owner_id, follow_up_at, follow_up_note, follow_up_user, fu:profiles!leads_follow_up_user_fkey(namn)",
+      )
       .eq("orgnr", orgnr)
       .maybeSingle(),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
@@ -126,6 +141,7 @@ export default async function BolagDetaljPage({
         {lead ? (
           <DetailActions
             leadId={lead.id}
+            companyName={company.namn}
             status={lead.status}
             ownerId={lead.owner_id}
             users={users}
@@ -347,6 +363,17 @@ export default async function BolagDetaljPage({
           </div>
         </div>
 
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+        {lead && session && (
+          <FollowUpCard
+            leadId={lead.id}
+            followUpAt={lead.follow_up_at}
+            followUpNote={lead.follow_up_note}
+            followUpUserNamn={profileName(lead.fu as ProfileRef | ProfileRef[] | null)}
+            currentUserId={session.userId}
+            users={users}
+          />
+        )}
         <div className="card">
           <div className="card-head">
             <h2>Status &amp; aktivitet</h2>
@@ -380,6 +407,7 @@ export default async function BolagDetaljPage({
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </section>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { assignLeadAction, updateLeadStatusAction } from "@/actions/leads";
+import { LossReasonDialog } from "@/components/loss-reason-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/constants";
@@ -14,11 +15,13 @@ interface UserOption {
 
 export function DetailActions({
   leadId,
+  companyName,
   status,
   ownerId,
   users,
 }: {
   leadId: string;
+  companyName: string;
   status: string;
   ownerId: string | null;
   users: UserOption[];
@@ -28,14 +31,22 @@ export function DetailActions({
   const [pending, startTransition] = useTransition();
   const [currentStatus, setCurrentStatus] = useState(status);
   const [currentOwner, setCurrentOwner] = useState(ownerId ?? "");
+  const [lossDialogOpen, setLossDialogOpen] = useState(false);
 
-  function changeStatus(next: string) {
+  function changeStatus(next: string, orsak?: string) {
+    if (next === "forlorad" && orsak === undefined && !lossDialogOpen) {
+      // Förlorad kräver ett extra steg: fråga efter orsak först.
+      setLossDialogOpen(true);
+      return;
+    }
     const prev = currentStatus;
     setCurrentStatus(next);
+    setLossDialogOpen(false);
     startTransition(async () => {
       const result = await updateLeadStatusAction({
         leadId,
         status: next as LeadStatus,
+        orsak,
       });
       toast(result.message, result.ok ? "ok" : "err");
       if (!result.ok) setCurrentStatus(prev);
@@ -59,6 +70,13 @@ export function DetailActions({
 
   return (
     <div className="actions">
+      <LossReasonDialog
+        open={lossDialogOpen}
+        companyName={companyName}
+        busy={pending}
+        onConfirm={(orsak) => changeStatus("forlorad", orsak ?? "")}
+        onCancel={() => setLossDialogOpen(false)}
+      />
       <StatusBadge status={currentStatus} />
       <select
         className="select"

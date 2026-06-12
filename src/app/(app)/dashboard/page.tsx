@@ -2,12 +2,14 @@ import Link from "next/link";
 import { fetchActivities } from "@/lib/activity";
 import { activityFeedText } from "@/lib/activity-text";
 import { LEAD_STATUSES } from "@/lib/constants";
-import { fmtDate, fmtDateTime, fmtKr, fmtNumber } from "@/lib/format";
-import { getAutoSyncEnabled, getSyncFilter } from "@/lib/settings";
+import { fmtDate, fmtDateTime, fmtKr, fmtNumber, fmtPercent } from "@/lib/format";
+import { parseListParams, rpcArgs, type LeadListRow } from "@/lib/list-params";
+import { getAutoSyncEnabled, getSyncFilter, tableYearWindow } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { EmptyState } from "@/components/empty-state";
 import { RadarGlyph } from "@/components/radar-glyph";
+import { FollowUpList, type FollowUpRow } from "./follow-up-list";
 
 export const metadata = { title: "Dashboard – GRODT" };
 
@@ -36,6 +38,8 @@ export default async function DashboardPage() {
     lastRunRes,
     autoSync,
     activities,
+    followUpsRes,
+    growersRes,
   ] = await Promise.all([
     supabase.from("companies").select("orgnr", { count: "exact", head: true }),
     supabase.rpc("lead_status_counts"),
@@ -53,6 +57,23 @@ export default async function DashboardPage() {
       .limit(1),
     getAutoSyncEnabled(supabase),
     fetchActivities({ limit: 6 }),
+    supabase
+      .from("leads")
+      .select(
+        "id, orgnr, follow_up_at, follow_up_note, companies(namn), fu:profiles!leads_follow_up_user_fkey(namn)",
+      )
+      .not("follow_up_at", "is", null)
+      .order("follow_up_at", { ascending: true })
+      .limit(10),
+    supabase.rpc(
+      "list_leads",
+      rpcArgs(
+        { ...parseListParams({}), sort: "tillvaxt", dir: "desc" },
+        tableYearWindow(settings),
+        60,
+        0,
+      ),
+    ),
   ]);
 
   const companyCount = companiesRes.count ?? 0;
@@ -72,6 +93,30 @@ export default async function DashboardPage() {
   const customers = Number(customerStats?.totalt ?? 0);
   const totalRevenue = Number(customerStats?.intjanat_totalt ?? 0);
   const lastRun = lastRunRes.data?.[0] ?? null;
+
+  const followUps: FollowUpRow[] = (followUpsRes.data ?? []).map((row) => {
+    const companies = row.companies as { namn: string } | { namn: string }[] | null;
+    const fu = row.fu as { namn: string } | { namn: string }[] | null;
+    return {
+      leadId: row.id,
+      orgnr: row.orgnr,
+      namn: (Array.isArray(companies) ? companies[0]?.namn : companies?.namn) ?? row.orgnr,
+      datum: row.follow_up_at as string,
+      anteckning: row.follow_up_note,
+      ansvarigNamn: (Array.isArray(fu) ? fu[0]?.namn : fu?.namn) ?? null,
+    };
+  });
+
+  // Snabbväxare utan ansvarig – dagens ringlista.
+  const growers = ((growersRes.data ?? []) as LeadListRow[])
+    .filter(
+      (row) =>
+        row.owner_id === null &&
+        row.oms_tillvaxt_pct !== null &&
+        Number(row.oms_tillvaxt_pct) > 0 &&
+        !row.avregistrerad,
+    )
+    .slice(0, 5);
 
   return (
     <section className="view">
@@ -138,6 +183,25 @@ export default async function DashboardPage() {
 
       <div className="dash-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+          <div className="card">
+            <div className="card-head">
+              <h2>Att följa upp</h2>
+              <span className="small faint">
+                {followUps.length === 0 ? "Inga planerade" : `${followUps.length} närmast i tur`}
+              </span>
+            </div>
+            <div className="card-body" style={{ paddingTop: 6 }}>
+              {followUps.length === 0 ? (
+                <EmptyState
+                  title="Inga uppföljningar planerade"
+                  description='Sätt "kontakta om 3 månader" på ett bolagskort så dyker påminnelsen upp här.'
+                />
+              ) : (
+                <FollowUpList rows={followUps} />
+              )}
+            </div>
+          </div>
+
           <div className="card">
             <div className="card-head">
               <h2>Pipeline-fördelning</h2>
@@ -207,6 +271,38 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+        {growers.length > 0 && (
+          <div className="card">
+            <div className="card-head">
+              <h2>Snabbväxare utan ansvarig</h2>
+              <Link className="small" href="/bolag?vaxt=10&sort=tillvaxt&dir=desc">
+                Visa alla
+              </Link>
+            </div>
+            <div className="card-body" style={{ paddingTop: 6 }}>
+              <div className="activity-list">
+                {growers.map((row) => (
+                  <div className="item" key={row.lead_id} style={{ alignItems: "center" }}>
+                    <span className="txt" style={{ minWidth: 0 }}>
+                      <Link href={`/bolag/${row.orgnr}`}>
+                        <strong>{row.namn}</strong>
+                      </Link>
+                      <span className="faint small"> · {row.ort ?? "–"}</span>
+                    </span>
+                    <span
+                      className="when"
+                      style={{ color: "var(--ok)", fontWeight: 600, fontSize: 12.5 }}
+                    >
+                      {fmtPercent(Number(row.oms_tillvaxt_pct), { sign: true })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="card">
           <div className="card-head">
             <h2>Senaste aktiviteter</h2>
@@ -238,6 +334,7 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </section>

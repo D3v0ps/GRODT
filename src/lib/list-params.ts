@@ -86,6 +86,7 @@ export interface LeadListRow {
   oms_tillvaxt_pct: number | null;
   avregistrerad: boolean;
   reklamsparr: boolean;
+  follow_up_at: string | null;
   updated_at: string;
   total_count: number;
 }

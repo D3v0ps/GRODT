@@ -39,6 +39,7 @@ export default async function PipelinePage() {
       ownerNamn: row.owner_namn,
       maxOms: oms.length === 0 ? null : Math.max(...oms),
       dagar: daysSince(row.updated_at),
+      followUpAt: row.follow_up_at,
     };
   });
 

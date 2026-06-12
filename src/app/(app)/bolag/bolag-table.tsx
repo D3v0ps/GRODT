@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { addLeadAction, bulkAssignAction } from "@/actions/leads";
 import { EmptyState } from "@/components/empty-state";
 import { IconDownload, IconSearch } from "@/components/icons";
+import { Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
 import { LEAD_STATUSES, sniLabel } from "@/lib/constants";
 import { fmtKr, fmtNumber, fmtPercent } from "@/lib/format";
@@ -55,12 +58,79 @@ export function BolagTable({
   users,
 }: Props) {
   const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState(params.sok);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOwner, setBulkOwner] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addOrgnr, setAddOrgnr] = useState("");
+  const [addNamn, setAddNamn] = useState("");
+  const [addOrt, setAddOrt] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
     setSearch(params.sok);
   }, [params.sok]);
+
+  // Rensa markeringen när listan byter innehåll (sida/filter).
+  useEffect(() => {
+    setSelected(new Set());
+  }, [rows]);
+
+  function toggleSelected(leadId: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(leadId)) next.delete(leadId);
+      else next.add(leadId);
+      return next;
+    });
+  }
+
+  const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.lead_id));
+
+  function toggleAll() {
+    setSelected(allOnPageSelected ? new Set() : new Set(rows.map((r) => r.lead_id)));
+  }
+
+  function runBulkAssign() {
+    if (pending || selected.size === 0) return;
+    startTransition(async () => {
+      const result = await bulkAssignAction({
+        leadIds: [...selected],
+        ownerId: bulkOwner || null,
+      });
+      toast(result.message, result.ok ? "ok" : "err");
+      if (result.ok) {
+        setSelected(new Set());
+        router.refresh();
+      }
+    });
+  }
+
+  function submitAddLead(e: React.FormEvent) {
+    e.preventDefault();
+    if (pending) return;
+    setAddError(null);
+    startTransition(async () => {
+      const result = await addLeadAction({
+        orgnr: addOrgnr.trim(),
+        namn: addNamn.trim() || undefined,
+        ort: addOrt.trim() || undefined,
+      });
+      if (!result.ok) {
+        setAddError(result.message);
+        return;
+      }
+      toast(result.message, "ok");
+      setAddOpen(false);
+      setAddOrgnr("");
+      setAddNamn("");
+      setAddOrt("");
+      router.refresh();
+    });
+  }
 
   function navigate(next: Partial<ListParams>, resetPage = true) {
     const merged: Partial<ListParams> = { ...params, ...next };
@@ -116,8 +186,50 @@ export function BolagTable({
             <IconDownload />
             Exportera CSV
           </a>
+          <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+            Lägg till bolag
+          </button>
         </div>
       </div>
+
+      {selected.size > 0 && (
+        <div
+          className="banner info"
+          style={{ marginBottom: 14, alignItems: "center", gap: 12 }}
+        >
+          <strong style={{ whiteSpace: "nowrap" }}>{selected.size} markerade</strong>
+          <select
+            className="select"
+            aria-label="Tilldela markerade till"
+            value={bulkOwner}
+            onChange={(e) => setBulkOwner(e.target.value)}
+            style={{ maxWidth: 220 }}
+          >
+            <option value="">Ta bort tilldelning</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.namn}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={`btn btn-primary btn-sm${pending ? " loading" : ""}`}
+            onClick={runBulkAssign}
+            disabled={pending}
+          >
+            Tilldela
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setSelected(new Set())}
+            disabled={pending}
+          >
+            Avmarkera alla
+          </button>
+        </div>
+      )}
 
       <div className="table-shell">
         <div className="table-toolbar">
@@ -207,6 +319,14 @@ export function BolagTable({
           <table className="data">
             <thead>
               <tr>
+                <th style={{ width: 34 }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Markera alla på sidan"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 {COLUMNS.slice(0, 1).map((c) => (
                   <th key={c.key} className="sortable" aria-sort={ariaSort(c.key)}>
                     <Link href={sortHref(c.key)}>
@@ -255,7 +375,7 @@ export function BolagTable({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={{ height: "auto", whiteSpace: "normal" }}>
+                  <td colSpan={12} style={{ height: "auto", whiteSpace: "normal" }}>
                     {hasFilters ? (
                       <EmptyState
                         title="Inga bolag matchar filtren"
@@ -288,6 +408,8 @@ export function BolagTable({
                     qualYears={qualYears}
                     threshold={threshold}
                     sniCodes={sniCodes}
+                    selected={selected.has(row.lead_id)}
+                    onToggleSelected={() => toggleSelected(row.lead_id)}
                   />
                 ))
               )}
@@ -329,6 +451,77 @@ export function BolagTable({
         kvalificerar bolaget när det andra året ligger under tröskeln. Dämpade belopp
         ligger under {fmtKr(threshold)}.
       </p>
+
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        titleId="al-title"
+        title="Lägg till bolag"
+        footer={
+          <>
+            <button type="button" className="btn" onClick={() => setAddOpen(false)}>
+              Avbryt
+            </button>
+            <button
+              type="submit"
+              form="add-lead-form"
+              className={`btn btn-primary${pending ? " loading" : ""}`}
+              disabled={pending}
+            >
+              Lägg till som lead
+            </button>
+          </>
+        }
+      >
+        <form
+          id="add-lead-form"
+          onSubmit={submitAddLead}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div className="field">
+            <label htmlFor="al-orgnr">Organisationsnummer</label>
+            <input
+              className="input mono"
+              id="al-orgnr"
+              required
+              placeholder="556712-4830"
+              value={addOrgnr}
+              onChange={(e) => setAddOrgnr(e.target.value)}
+            />
+            <span className="hint">
+              Namn, ort, SNI och bokslut hämtas automatiskt från Bolagsverket.
+            </span>
+          </div>
+          <div className="field">
+            <label htmlFor="al-namn">Bolagsnamn (valfritt)</label>
+            <input
+              className="input"
+              id="al-namn"
+              placeholder="Fylls i automatiskt"
+              value={addNamn}
+              onChange={(e) => setAddNamn(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="al-ort">Ort (valfri)</label>
+            <input
+              className="input"
+              id="al-ort"
+              placeholder="Fylls i automatiskt"
+              value={addOrt}
+              onChange={(e) => setAddOrt(e.target.value)}
+            />
+          </div>
+          {addError && (
+            <div className="field">
+              <span className="error-text">{addError}</span>
+            </div>
+          )}
+          <p className="small faint">
+            Bolaget läggs in som lead med status Ny och tilldelas dig.
+          </p>
+        </form>
+      </Modal>
     </>
   );
 }
@@ -339,12 +532,16 @@ function BolagRow({
   qualYears,
   threshold,
   sniCodes,
+  selected,
+  onToggleSelected,
 }: {
   row: LeadListRow;
   years: [number, number, number, number];
   qualYears: [number, number];
   threshold: number;
   sniCodes: string[];
+  selected: boolean;
+  onToggleSelected: () => void;
 }) {
   const router = useRouter();
   const values = [row.oms1, row.oms2, row.oms3, row.oms4];
@@ -381,6 +578,14 @@ function BolagRow({
         if (e.key === "Enter") open();
       }}
     >
+      <td onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          aria-label={`Markera ${row.namn}`}
+          checked={selected}
+          onChange={onToggleSelected}
+        />
+      </td>
       <td className="namn">
         {row.namn}
         {row.avregistrerad && (

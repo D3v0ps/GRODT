@@ -15,8 +15,12 @@ export type ActivityEntityType =
   | "synk";
 
 export type ActivityAction =
+  | "lead_skapad"
   | "status_andrad"
   | "tilldelad"
+  | "massutdelning"
+  | "uppfoljning_satt"
+  | "uppfoljning_klar"
   | "anteckning"
   | "synk"
   | "csv_import"

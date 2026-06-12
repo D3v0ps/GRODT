@@ -21,10 +21,16 @@ function num(payload: Payload, key: string): number {
 /** Kort handlingsetikett till "Handling"-kolumnen i admin-loggen. */
 export function actionLabel(action: string): string {
   switch (action) {
+    case "lead_skapad":
+      return "Nytt lead";
     case "status_andrad":
       return "Statusbyte";
     case "tilldelad":
+    case "massutdelning":
       return "Tilldelning";
+    case "uppfoljning_satt":
+    case "uppfoljning_klar":
+      return "Uppföljning";
     case "anteckning":
       return "Anteckning";
     case "synk":
@@ -59,6 +65,8 @@ export function actionLabel(action: string): string {
 export function activityDetail(action: string, payload: Payload): string {
   const namn = str(payload, "namn");
   switch (action) {
+    case "lead_skapad":
+      return `${namn} tillagd manuellt${str(payload, "kalla") === "bolagsverket" ? " (berikad från Bolagsverket)" : ""}`;
     case "status_andrad": {
       const orsak = str(payload, "orsak");
       return `${namn}: ${statusLabel(str(payload, "fran"))} → ${statusLabel(str(payload, "till"))}${orsak ? ` (${orsak})` : ""}`;
@@ -67,6 +75,12 @@ export function activityDetail(action: string, payload: Payload): string {
       const owner = str(payload, "ansvarig");
       return owner ? `${namn} → ${owner}` : `${namn}: tilldelning borttagen`;
     }
+    case "massutdelning":
+      return `${num(payload, "antal")} leads → ${str(payload, "ansvarig") || "tilldelning borttagen"}`;
+    case "uppfoljning_satt":
+      return `${namn}: uppföljning ${str(payload, "datum")}${str(payload, "anteckning") ? ` (${str(payload, "anteckning")})` : ""}`;
+    case "uppfoljning_klar":
+      return `${namn}: uppföljning avklarad`;
     case "anteckning":
       return `${namn}: ny anteckning`;
     case "synk":
@@ -118,12 +132,20 @@ export function activityDetail(action: string, payload: Payload): string {
 export function activityFeedText(action: string, payload: Payload): string {
   const namn = str(payload, "namn");
   switch (action) {
+    case "lead_skapad":
+      return `lade till ${namn} som nytt lead`;
     case "status_andrad":
       return `flyttade ${namn} till ${statusLabel(str(payload, "till"))}`;
     case "tilldelad": {
       const owner = str(payload, "ansvarig");
       return owner ? `tilldelade ${namn} till ${owner}` : `tog bort tilldelningen på ${namn}`;
     }
+    case "massutdelning":
+      return `delade ut ${num(payload, "antal")} leads till ${str(payload, "ansvarig") || "ingen"}`;
+    case "uppfoljning_satt":
+      return `satte uppföljning ${str(payload, "datum")} på ${namn}`;
+    case "uppfoljning_klar":
+      return `bockade av uppföljningen på ${namn}`;
     case "anteckning":
       return `antecknade på ${namn}`;
     case "synk":
@@ -176,6 +198,10 @@ export function activityFeedText(action: string, payload: Payload): string {
 /** Tidslinjetext på bolags-/kundkortet ("Status ändrad till Dialog"). */
 export function activityTimelineText(action: string, payload: Payload): string {
   switch (action) {
+    case "lead_skapad":
+      return str(payload, "kalla") === "bolagsverket"
+        ? "Tillagd manuellt – berikad från Bolagsverket"
+        : "Tillagd manuellt";
     case "status_andrad": {
       const orsak = str(payload, "orsak");
       return `Status ändrad till ${statusLabel(str(payload, "till"))}${orsak ? ` – ${orsak}` : ""}`;
@@ -184,6 +210,12 @@ export function activityTimelineText(action: string, payload: Payload): string {
       const owner = str(payload, "ansvarig");
       return owner ? `Tilldelad ${owner}` : "Tilldelning borttagen";
     }
+    case "massutdelning":
+      return `Tilldelad ${str(payload, "ansvarig")} (massutdelning)`;
+    case "uppfoljning_satt":
+      return `Uppföljning satt till ${str(payload, "datum")}${str(payload, "anteckning") ? ` – ${str(payload, "anteckning")}` : ""}`;
+    case "uppfoljning_klar":
+      return "Uppföljning avklarad";
     case "anteckning":
       return "Anteckning tillagd";
     case "synk":
