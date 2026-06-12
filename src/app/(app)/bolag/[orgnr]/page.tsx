@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { IconBack, IconError, IconInfo } from "@/components/icons";
 import { DetailActions } from "./detail-actions";
 import { FollowUpCard } from "./follow-up-card";
+import { GoogleEnrichButton } from "./google-enrich-button";
 import { HandoffPanel } from "./handoff-panel";
 import { NoteForm } from "./note-form";
 import { TrendChart } from "./trend-chart";
@@ -59,7 +60,7 @@ export default async function BolagDetaljPage({
     supabase
       .from("companies")
       .select(
-        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr",
+        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, telefon_kalla, hemsida_kalla, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
@@ -182,9 +183,14 @@ export default async function BolagDetaljPage({
           <div className="card">
             <div className="card-head">
               <h2>Bolagsfakta</h2>
-              <span className="small faint">
-                Källa: {providerLabel(company.kalla)} ·{" "}
-                {company.last_synced_at ? fmtDate(company.last_synced_at) : "–"}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                {(!company.telefon || !company.hemsida) && (
+                  <GoogleEnrichButton orgnr={company.orgnr} />
+                )}
+                <span className="small faint">
+                  Källa: {providerLabel(company.kalla)} ·{" "}
+                  {company.last_synced_at ? fmtDate(company.last_synced_at) : "–"}
+                </span>
               </span>
             </div>
             <div className="card-body">
@@ -221,9 +227,14 @@ export default async function BolagDetaljPage({
                   <div className="k">Hemsida</div>
                   <div className="v">
                     {company.hemsida ? (
-                      <a href={company.hemsida} target="_blank" rel="noreferrer">
-                        {company.hemsida.replace(/^https?:\/\//, "")}
-                      </a>
+                      <>
+                        <a href={company.hemsida} target="_blank" rel="noreferrer">
+                          {company.hemsida.replace(/^https?:\/\//, "")}
+                        </a>
+                        {company.hemsida_kalla === "google" && (
+                          <span className="faint small"> · via Google</span>
+                        )}
+                      </>
                     ) : (
                       "–"
                     )}
@@ -231,7 +242,25 @@ export default async function BolagDetaljPage({
                 </div>
                 <div className="fact">
                   <div className="k">Telefon</div>
-                  <div className="v mono">{company.telefon ?? "–"}</div>
+                  <div className="v mono">
+                    {company.telefon ? (
+                      <>
+                        <a href={`tel:${company.telefon}`}>{company.telefon}</a>
+                        {company.telefon_kalla === "google" && (
+                          <span
+                            className="faint small"
+                            style={{ fontFamily: "var(--font-ui)" }}
+                            title="Numret kommer från bolagets publika Google-profil och är ofta en växel – inte ett verifierat direktnummer"
+                          >
+                            {" "}
+                            · via Google, kan vara växelnummer
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "–"
+                    )}
+                  </div>
                 </div>
                 <div className="fact">
                   <div className="k">Registrerat</div>

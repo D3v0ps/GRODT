@@ -5,7 +5,10 @@ import { getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { IconError } from "@/components/icons";
+import { getSessionProfile } from "@/lib/auth";
+import { getGooglePlacesApiKey } from "@/lib/providers/google-places";
 import { CsvImportCard } from "./csv-import-card";
+import { GoogleSweepCard } from "./google-sweep-card";
 import { SyncButton } from "./sync-button";
 
 export const metadata = { title: "Import & synk – GRODT" };
@@ -26,10 +29,18 @@ interface RunRow {
 
 export default async function SynkPage() {
   const supabase = await createSupabaseServerClient();
-  const [settings, providerName] = await Promise.all([
+  const [settings, providerName, session, googleKey, missingPhoneRes] = await Promise.all([
     getSyncFilter(supabase),
     getEffectiveProviderName(supabase),
+    getSessionProfile(),
+    getGooglePlacesApiKey(),
+    supabase
+      .from("companies")
+      .select("orgnr", { count: "exact", head: true })
+      .is("telefon", null)
+      .is("avregistrerad_datum", null),
   ]);
+  const saknarTelefon = missingPhoneRes.count ?? 0;
 
   const { data: runsData } = await supabase
     .from("import_runs")
@@ -88,6 +99,10 @@ export default async function SynkPage() {
       </div>
 
       <CsvImportCard sniCodes={settings.sniCodes} />
+
+      {session?.roll === "admin" && (
+        <GoogleSweepCard saknarTelefon={saknarTelefon} configured={googleKey !== null} />
+      )}
 
       <div className="table-shell">
         <div className="table-toolbar">

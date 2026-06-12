@@ -35,6 +35,8 @@ export function actionLabel(action: string): string {
       return "Anteckning";
     case "synk":
       return "Synk";
+    case "google_berikning":
+      return "Google-berikning";
     case "csv_import":
       return "CSV-import";
     case "export":
@@ -88,6 +90,13 @@ export function activityDetail(action: string, payload: Payload): string {
       return `${namn}: ny anteckning`;
     case "synk":
       return `${str(payload, "trigger") === "cron" ? "Automatisk" : "Manuell"} synk (${str(payload, "source")}) – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade${num(payload, "fel") > 0 ? `, ${num(payload, "fel")} fel` : ""}`;
+    case "google_berikning": {
+      const antal = num(payload, "antal");
+      if (antal > 0) {
+        return `Google Places-svep – ${num(payload, "telefon")} telefonnummer, ${num(payload, "hemsidor")} hemsidor av ${antal} bolag`;
+      }
+      return `${namn}: ${[str(payload, "telefon") && "telefon", str(payload, "hemsida") && "hemsida"].filter(Boolean).join(" + ") || "inget"} hämtat via Google (växel/publik profil)`;
+    }
     case "csv_import":
       return `${str(payload, "fil")} – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade, ${num(payload, "leads")} leads`;
     case "export":
@@ -159,6 +168,10 @@ export function activityFeedText(action: string, payload: Payload): string {
       return `antecknade på ${namn}`;
     case "synk":
       return `körde synk – ${num(payload, "nya")} nya bolag hämtades`;
+    case "google_berikning":
+      return num(payload, "antal") > 0
+        ? `körde Google-svep – kontaktuppgifter till ${num(payload, "telefon")} bolag`
+        : `hämtade kontaktuppgifter via Google till ${namn}`;
     case "csv_import":
       return `importerade ${str(payload, "fil")} – ${num(payload, "nya")} nya bolag`;
     case "export":
@@ -235,6 +248,8 @@ export function activityTimelineText(action: string, payload: Payload): string {
       return "Anteckning tillagd";
     case "synk":
       return str(payload, "ny_lead") === "ja" ? "Hämtad via synk (ny)" : "Uppdaterad via synk";
+    case "google_berikning":
+      return `Kontaktuppgifter hämtade via Google${str(payload, "telefon") ? ` – ${str(payload, "telefon")} (växel/publik profil)` : ""}`;
     case "csv_import":
       return str(payload, "ny_lead") === "ja" ? "Importerad via CSV (ny)" : "Uppdaterad via CSV-import";
     case "kund_overlamnad": {

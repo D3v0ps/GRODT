@@ -23,6 +23,7 @@ export type ActivityAction =
   | "uppfoljning_klar"
   | "anteckning"
   | "synk"
+  | "google_berikning"
   | "csv_import"
   | "export"
   | "anvandare_skapad"
