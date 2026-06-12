@@ -6,14 +6,18 @@ import { useEffect, useState, type ReactNode } from "react";
 import { signOutAction } from "@/actions/auth";
 import { rollLabel, type Roll } from "@/lib/constants";
 import { Avatar } from "./avatar";
+import { CommandPalette, openPalette } from "./command-palette";
 import {
   IconBriefcase,
   IconBuildings,
+  IconChart,
   IconDashboard,
   IconDesign,
   IconHelp,
   IconLogout,
+  IconPhone,
   IconPipeline,
+  IconSearch,
   IconSettings,
   IconSync,
   IconUsers,
@@ -31,7 +35,9 @@ const MAIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
   { href: "/bolag", label: "Bolag", icon: IconBuildings },
   { href: "/pipeline", label: "Pipeline", icon: IconPipeline },
+  { href: "/ringlistor", label: "Ringlistor", icon: IconPhone },
   { href: "/kunder", label: "Kunder", icon: IconBriefcase },
+  { href: "/statistik", label: "Statistik", icon: IconChart },
   { href: "/synk", label: "Import & synk", icon: IconSync },
 ] as const;
 
@@ -102,6 +108,20 @@ export function AppShell({
           </span>
         </div>
         <nav className="nav" aria-label="Huvudnavigering">
+          <button
+            type="button"
+            className="nav-search"
+            onClick={() => {
+              setMenuOpen(false);
+              openPalette();
+            }}
+          >
+            <IconSearch />
+            Sök …
+            <span className="nav-kbd" aria-hidden="true">
+              Ctrl K
+            </span>
+          </button>
           {MAIN_NAV.map(navLink)}
           <div className="divider" />
           <span className="nav-label">System</span>
@@ -111,12 +131,19 @@ export function AppShell({
           {navLink({ href: "/designsystem", label: "Designsystem", icon: IconDesign })}
         </nav>
         <div className="me">
-          <Avatar id={profile.userId} namn={profile.namn} />
-          <span className="who">
-            {profile.namn}
-            <br />
-            <span className="role">{rollLabel(profile.roll)}</span>
-          </span>
+          <Link
+            className="me-link"
+            href={`/profil/${profile.userId}`}
+            title="Min profil"
+            onClick={() => setMenuOpen(false)}
+          >
+            <Avatar id={profile.userId} namn={profile.namn} />
+            <span className="who">
+              {profile.namn}
+              <br />
+              <span className="role">{rollLabel(profile.roll)}</span>
+            </span>
+          </Link>
           <form action={signOutAction}>
             <button className="logout" title="Logga ut" aria-label="Logga ut" type="submit">
               <IconLogout />
@@ -151,6 +178,7 @@ export function AppShell({
         {children}
       </main>
       <TourOverlay />
+      <CommandPalette />
     </div>
   );
 }

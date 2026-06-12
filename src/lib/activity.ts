@@ -1,4 +1,5 @@
 import type { ActivityAction } from "./activity-actions";
+import { addDays, stockholmOffset } from "./period";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -11,6 +12,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 export type ActivityEntityType =
   | "lead"
   | "kund"
+  | "ringlista"
   | "anvandare"
   | "installningar"
   | "synk";
@@ -64,27 +66,6 @@ interface FetchActivitiesOptions {
   offset?: number;
 }
 
-/** UTC-offset (±HH:MM) för svensk tid det aktuella dygnet – hanterar sommartid. */
-function stockholmOffset(date: string): string {
-  const probe = new Date(`${date}T12:00:00Z`);
-  if (Number.isNaN(probe.getTime())) return "+01:00";
-  const part = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Stockholm",
-    timeZoneName: "longOffset",
-  })
-    .formatToParts(probe)
-    .find((p) => p.type === "timeZoneName")?.value;
-  const match = part?.match(/GMT([+-]\d{2}:\d{2})/);
-  return match ? match[1] : "+01:00";
-}
-
-/** Nästa kalenderdag som YYYY-MM-DD. */
-function nextDay(date: string): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * Hämtar aktiviteter via service role. Anropas endast från server-kod som
  * själv avgör vad användaren får se (bolagstidslinje för alla inloggade,
@@ -111,7 +92,7 @@ export async function fetchActivities(
     const offsetSuffix = stockholmOffset(options.date);
     query = query
       .gte("created_at", `${options.date}T00:00:00${offsetSuffix}`)
-      .lt("created_at", `${nextDay(options.date)}T00:00:00${offsetSuffix}`);
+      .lt("created_at", `${addDays(options.date, 1)}T00:00:00${offsetSuffix}`);
   }
 
   const { data, error } = await query;

@@ -1084,3 +1084,240 @@ table.data .ansvarig-cell { display: flex; align-items: center; gap: 8px; height
 .hjalp-prosa p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.65; color: var(--ink-2); }
 .hjalp-prosa p:last-child { margin-bottom: 0; }
 .hjalp-prosa strong { color: var(--ink); }
+
+/* ---------- Endast för skärmläsare ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Snabbsök: knappen i sidomenyn ---------- */
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-s);
+  color: #C9D8CE;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.nav-search:hover { background: var(--ink-soft); color: #FFFFFF; }
+.nav-search .icon { width: 16px; height: 16px; flex: none; opacity: 0.85; }
+.nav-search .nav-kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #8FA89A;
+  border: 1px solid #2A4437;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+/* ---------- Snabbsök: paletten ---------- */
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 39, 30, 0.45);
+  z-index: 220;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+.palette {
+  width: min(580px, 100%);
+  background: var(--surface);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.palette-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.palette-input .icon { width: 16px; height: 16px; color: var(--ink-3); flex: none; }
+.palette-input input {
+  border: 0;
+  outline: 0;
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: transparent;
+}
+.palette-input input::placeholder { color: var(--ink-3); }
+.palette-list { max-height: min(420px, 55vh); overflow-y: auto; padding: 6px; }
+.palette-group {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 8px 10px 4px;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.palette-item.active { background: var(--blue-tint); }
+.palette-item .p-label {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-item .meta {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.palette-empty { padding: 20px 14px; color: var(--ink-3); font-size: 13px; text-align: center; }
+.palette-foot {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--ink-2);
+}
+
+/* ---------- Min profil-länken i sidomenyn ---------- */
+.sidebar .me .me-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  border-radius: var(--radius-s);
+  padding: 4px;
+  margin: -4px;
+}
+.sidebar .me .me-link:hover { background: var(--ink-soft); text-decoration: none; }
+
+/* ---------- Ringlistor ---------- */
+.progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.progress > span { display: block; height: 100%; background: var(--ok); border-radius: 3px; }
+table.data tr.ringd td { color: var(--ink-3); }
+table.data tr.ringd td.namn a { color: var(--ink-3); text-decoration: line-through; }
+table.data tr.next-call td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* ---------- Periodväljaren (Statistik/Profil) ---------- */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  background: var(--surface);
+}
+.seg a {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.seg a:last-child { border-right: 0; }
+.seg a:hover { background: var(--bg); text-decoration: none; }
+.seg a.active { background: var(--ink); color: #FFFFFF; }
+
+/* ---------- Leveranskedjan på kundkortet ---------- */
+.leverans-steg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  row-gap: 8px;
+}
+.leverans-steg li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.leverans-steg li:not(:last-child)::after {
+  content: "";
+  width: 16px;
+  height: 2px;
+  background: var(--line);
+  margin: 0 9px;
+  border-radius: 1px;
+}
+.leverans-steg .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+.leverans-steg li.done { color: var(--ink-2); }
+.leverans-steg li.done .dot { background: var(--ok); }
+.leverans-steg li.done:not(:last-child)::after { background: var(--ok); opacity: 0.35; }
+.leverans-steg li.current { color: var(--ink); }
+.leverans-steg li.current .dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* ---------- Kundstatusar: leveranskedjans färger ---------- */
+.badge.st-sallning1 { background: var(--st-kontaktad-bg); color: var(--st-kontaktad-text); }
+.badge.st-sallning1 .dot { background: var(--st-kontaktad-dot); }
+.badge.st-sallning2 { background: var(--st-dialog-bg); color: var(--st-dialog-text); }
+.badge.st-sallning2 .dot { background: var(--st-dialog-dot); }
+.badge.st-klar50 { background: var(--st-mote-bg); color: var(--st-mote-text); }
+.badge.st-klar50 .dot { background: var(--st-mote-dot); }
+.badge.st-klar75 { background: #D8EEEB; color: #0B5751; }
+.badge.st-klar75 .dot { background: #157F75; }
+.badge.st-fakturerad { background: var(--accent-tint); color: var(--accent-deep); }
+.badge.st-fakturerad .dot { background: var(--accent); }
+.badge.st-betald { background: #DFF2E5; color: #14572F; }
+.badge.st-betald .dot { background: var(--ok); }

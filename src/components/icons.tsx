@@ -138,6 +138,33 @@ export function IconError({ className = "icon" }: IconProps) {
   );
 }
 
+export function IconPhone({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M3.1 2.2h2.3l1.2 3-1.5 1.2a9.4 9.4 0 0 0 4.5 4.5l1.2-1.5 3 1.2v2.3a1 1 0 0 1-1.1 1A11.8 11.8 0 0 1 2.1 3.3a1 1 0 0 1 1-1.1Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconChart({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2 13.5h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path
+        d="M4.2 13V9M8 13V3.5M11.8 13V6.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function IconHelp({ className = "icon" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">

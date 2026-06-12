@@ -18,11 +18,20 @@ export function statusLabel(key: string): string {
   return LEAD_STATUSES.find((s) => s.key === key)?.label ?? key;
 }
 
-/** Kundens livscykel efter att säljaren vunnit och lämnat över. */
+/**
+ * Kundens leveranskedja efter vunnen affär: överlämning → sållningar →
+ * procentmilstolpar → klar leverans → fakturering → betalt. Ordningen
+ * i listan ÄR processordningen (steppern på kundkortet bygger på den).
+ */
 export const KUND_STATUSES = [
   { key: "overlamnad", label: "Överlämnad" },
-  { key: "pagaende", label: "Pågående" },
-  { key: "klar", label: "Klar" },
+  { key: "sallning1", label: "Första sållningen" },
+  { key: "sallning2", label: "Andra sållningen" },
+  { key: "klar50", label: "50 % klar" },
+  { key: "klar75", label: "75 % klar" },
+  { key: "klar", label: "Leverans klar" },
+  { key: "fakturerad", label: "Faktura skickad" },
+  { key: "betald", label: "Faktura betald" },
 ] as const;
 
 export type KundStatus = (typeof KUND_STATUSES)[number]["key"];
@@ -33,6 +42,9 @@ export const KUND_STATUS_KEYS = KUND_STATUSES.map((s) => s.key) as [
 ];
 
 export function kundStatusLabel(key: string): string {
+  // Utgången status från tiden före leveranskedjan – äldre loggrader
+  // ska fortfarande visas läsbart.
+  if (key === "pagaende") return "Pågående";
   return KUND_STATUSES.find((s) => s.key === key)?.label ?? key;
 }
 

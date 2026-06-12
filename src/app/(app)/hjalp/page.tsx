@@ -78,9 +78,11 @@ export default async function HjalpPage() {
           </p>
           <p>
             <strong>Massutdelning:</strong> kryssa i flera rader så dyker en list upp –
-            välj säljare och klicka Tilldela. <strong>Lägg till bolag:</strong> ange
-            bara ett organisationsnummer så hämtas namn, ort, SNI, beskrivning och
-            bokslut automatiskt från Bolagsverket, och leadet tilldelas dig.{" "}
+            välj säljare och klicka Tilldela. <strong>Spara som ringlista:</strong>{" "}
+            samma markering (eller hela det aktiva filtret) kan sparas som en delad
+            ringlista att beta av. <strong>Lägg till bolag:</strong> ange bara ett
+            organisationsnummer så hämtas namn, ort, SNI, beskrivning och bokslut
+            automatiskt från Bolagsverket, och leadet tilldelas dig.{" "}
             <strong>Exportera CSV</strong> tar med exakt de filter du ser.
           </p>
           <p>
@@ -134,13 +136,42 @@ export default async function HjalpPage() {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <h2>5. Kunder</h2>
+          <h2>5. Ringlistor</h2>
+        </div>
+        <div className="card-body hjalp-prosa">
+          <p>
+            Teamets gemensamma att ringa-listor. Skapa en från bolagslistan:
+            markera rader (eller behåll bara filtret aktivt) och klicka{" "}
+            <strong>Spara som ringlista</strong> – upp till 500 bolag per lista,
+            avregistrerade hoppas över automatiskt. Telefonnummer i listan är
+            klickbara, och nummer hämtade via Google märks så att ni vet att det kan
+            vara ett växelnummer.
+          </p>
+          <p>
+            Bocka av raderna medan ni ringer: alla ser direkt vem som tagit samtalet
+            och när, framstegsmätaren visar hur långt listan kommit och nästa bolag
+            att ringa markeras med mässingskanten. Avbockningar hamnar i bolagets
+            tidslinje och räknas som &quot;Ringda&quot; i statistiken. Listor kan tas
+            bort av den som skapade dem eller av admin – bolagen påverkas aldrig.
+          </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h2>6. Kunder &amp; leveranskedjan</h2>
         </div>
         <div className="card-body hjalp-prosa">
           <p>
             Allt efter vunnen affär. Säljaren lämnar över bolaget (affären krediteras
-            leadets ansvariga säljare i topplistan), en controller tar vid och statusen
-            går Överlämnad → Pågående → Klar.
+            leadets ansvariga säljare i topplistan), en controller tar vid och
+            leveransen följs steg för steg:{" "}
+            <strong>
+              Överlämnad → Första sållningen → Andra sållningen → 50 % klar → 75 %
+              klar → Leverans klar → Faktura skickad → Faktura betald
+            </strong>
+            . Kedjan visas på kundkortet och varje statusbyte loggas i tidslinjen, så
+            att hela teamet ser exakt var leveransen står.
           </p>
           <p>
             <strong>Intäkter:</strong> registrera belopp med beskrivning och datum.
@@ -156,7 +187,30 @@ export default async function HjalpPage() {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <h2>6. Import &amp; synk</h2>
+          <h2>7. Statistik &amp; profiler</h2>
+        </div>
+        <div className="card-body hjalp-prosa">
+          <p>
+            Statistiksidan räknar kontaktade, dialoger, möten, vunna/förlorade
+            affärer, ringda samtal, anteckningar, avklarade uppföljningar och
+            intjänade kronor – per person och period (vecka, månad, år eller hela
+            tiden, alltid i svensk kalendertid). Poängen byggs av aktivitetsloggen:
+            den som gör statusbytet får poängen, och intjänat krediteras säljaren som
+            vann kunden. Tabellen Pipeline just nu visar vem som har hur många aktiva
+            leads på bordet.
+          </p>
+          <p>
+            Klicka på ett namn (eller sök på en kollega med Ctrl+K) för personens{" "}
+            <strong>profilsida</strong>: aktivitet för vald period, vad som ligger på
+            bordet just nu, säljarfacit och de senaste händelserna. Din egen profil
+            når du genom att klicka på ditt namn längst ner i sidomenyn.
+          </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h2>8. Import &amp; synk</h2>
         </div>
         <div className="card-body hjalp-prosa">
           <p>
@@ -182,7 +236,7 @@ export default async function HjalpPage() {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <h2>7. Inställningar &amp; roller</h2>
+          <h2>9. Inställningar &amp; roller</h2>
         </div>
         <div className="card-body hjalp-prosa">
           <p>
@@ -206,6 +260,12 @@ export default async function HjalpPage() {
           <h2>Vanliga frågor</h2>
         </div>
         <div className="card-body hjalp-prosa">
+          <p>
+            <strong>Hur hittar jag snabbt ett bolag eller en kollega?</strong> Tryck{" "}
+            <strong>Ctrl+K</strong> (Cmd+K på Mac) var som helst i appen – snabbsöket
+            hittar bolag, kunder, personer och sidor. Piltangenterna väljer, Enter
+            öppnar, Esc stänger.
+          </p>
           <p>
             <strong>Varför står ett telefonnummer som &quot;via Google&quot;?</strong>{" "}
             Numret kommer från bolagets publika Google-profil och kan vara ett

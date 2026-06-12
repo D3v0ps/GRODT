@@ -33,6 +33,10 @@ export function actionLabel(action: string): string {
       return "Uppföljning";
     case "anteckning":
       return "Anteckning";
+    case "ringlista_skapad":
+    case "ringlista_ringd":
+    case "ringlista_borttagen":
+      return "Ringlista";
     case "synk":
       return "Synk";
     case "google_berikning":
@@ -93,6 +97,12 @@ export function activityDetail(action: string, payload: Payload): string {
       return `${namn}: uppföljning avklarad`;
     case "anteckning":
       return `${namn}: ny anteckning`;
+    case "ringlista_skapad":
+      return `Skapade ringlistan "${str(payload, "lista")}" med ${num(payload, "antal")} bolag`;
+    case "ringlista_ringd":
+      return `${namn}: avbockad i ringlistan "${str(payload, "lista")}"`;
+    case "ringlista_borttagen":
+      return `Tog bort ringlistan "${str(payload, "lista")}"`;
     case "synk":
       return `${str(payload, "trigger") === "cron" ? "Automatisk" : "Manuell"} synk (${str(payload, "source")}) – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade${num(payload, "fel") > 0 ? `, ${num(payload, "fel")} fel` : ""}`;
     case "google_berikning": {
@@ -176,6 +186,12 @@ export function activityFeedText(action: string, payload: Payload): string {
       return `bockade av uppföljningen på ${namn}`;
     case "anteckning":
       return `antecknade på ${namn}`;
+    case "ringlista_skapad":
+      return `skapade ringlistan "${str(payload, "lista")}" (${num(payload, "antal")} bolag)`;
+    case "ringlista_ringd":
+      return `bockade av ${namn} i ringlistan "${str(payload, "lista")}"`;
+    case "ringlista_borttagen":
+      return `tog bort ringlistan "${str(payload, "lista")}"`;
     case "synk":
       return `körde synk – ${num(payload, "nya")} nya bolag hämtades`;
     case "google_berikning":
@@ -259,6 +275,8 @@ export function activityTimelineText(action: string, payload: Payload): string {
       return "Uppföljning avklarad";
     case "anteckning":
       return "Anteckning tillagd";
+    case "ringlista_ringd":
+      return `Avbockad i ringlistan "${str(payload, "lista")}"`;
     case "synk":
       return str(payload, "ny_lead") === "ja" ? "Hämtad via synk (ny)" : "Uppdaterad via synk";
     case "google_berikning":

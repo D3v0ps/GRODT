@@ -31,7 +31,7 @@ const STEPS: TourStep[] = [
     path: "/bolag",
     titel: "Bolag – radarlistan",
     text:
-      "Alla bolag som radarn hittat. Sök på namn/orgnr/ort, filtrera på status, ort, omsättning och tillväxt. Fyra årskolumner visar omsättningen – mässingspunkten markerar året som ELLER-kvalificerar bolaget. Markera flera rader med kryssrutorna för att massutdela, eller klicka Lägg till bolag och ange ett orgnr så hämtas allt från Bolagsverket. Klicka på en rad för bolagets detaljsida.",
+      "Alla bolag som radarn hittat. Sök på namn/orgnr/ort, filtrera på status, ort, omsättning och tillväxt. Fyra årskolumner visar omsättningen – mässingspunkten markerar året som ELLER-kvalificerar bolaget. Markera rader med kryssrutorna för att massutdela eller spara dem som ringlista, eller klicka Lägg till bolag och ange ett orgnr så hämtas allt från Bolagsverket.",
   },
   {
     path: "/pipeline",
@@ -40,10 +40,22 @@ const STEPS: TourStep[] = [
       "Säljtavlan. Dra ett kort till nästa kolumn när dialogen utvecklas (eller fokusera kortet och använd vänster/höger piltangent). Släpper du ett kort på Förlorad frågar vi alltid efter orsaken – det bygger statistiken. Dubbelklick öppnar bolaget.",
   },
   {
+    path: "/ringlistor",
+    titel: "Ringlistor – dagens samtal",
+    text:
+      "Spara ett urval ur bolagslistan (markerade rader eller hela filtret) och beta av det tillsammans. Bocka av medan ni ringer – alla ser vem som tagit vilket samtal och hur långt listan kommit, och avbockningarna räknas i säljarstatistiken.",
+  },
+  {
     path: "/kunder",
     titel: "Kunder – efter affären",
     text:
-      "När en affär är vunnen lämnar säljaren över bolaget till en controller (knappen finns på bolagssidan). Här följer ni upp intäkter (kan redigeras i efterhand om något blev fel), verifierade kontaktuppgifter – \"numret man faktiskt når kunden på\" – och kommentarer med författarnamn. Topplistan räknar intjänat per säljare.",
+      "När en affär är vunnen lämnar säljaren över bolaget till en controller. Leveranskedjan följer arbetet hela vägen: Överlämnad → sållningar → 50/75 % klar → Leverans klar → Faktura skickad → Faktura betald. Här bor också intäkterna, verifierade kontaktuppgifter och kommentarer.",
+  },
+  {
+    path: "/statistik",
+    titel: "Statistik – säljarnas facit",
+    text:
+      "Kontaktade, möten, vunna affärer och intjänade kronor per person – per vecka, månad, år eller hela tiden. Poängen byggs av aktivitetsloggen: den som gör statusbytet får poängen. Klicka på ett namn för personens profil med historik.",
   },
   {
     path: "/synk",
@@ -67,7 +79,7 @@ const STEPS: TourStep[] = [
     path: "/hjalp",
     titel: "Det var rundturen!",
     text:
-      "Hela manualen finns på den här sidan – sektion för sektion, med detaljer om CSV-format, kvalificeringsregeln och rollerna. Du kan starta om rundturen härifrån när som helst. Lycka till – get rich or die trying.",
+      "Hela manualen finns på den här sidan. Ett sista tips: tryck Ctrl+K (Cmd+K på Mac) var du än står för att snabbsöka bolag, kunder, kollegor och sidor. Lycka till – get rich or die trying.",
   },
 ];
 

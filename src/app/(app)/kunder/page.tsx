@@ -14,9 +14,10 @@ export const metadata = { title: "Kunder – GRODT" };
 
 interface Stats {
   totalt: number;
-  overlamnade: number;
-  pagaende: number;
-  klara: number;
+  i_leverans: number;
+  levererade: number;
+  fakturerade: number;
+  betalda: number;
   intjanat_totalt: number;
 }
 
@@ -61,9 +62,10 @@ export default async function KunderPage({
   }
   const stats = ((statsRes.data ?? [])[0] ?? {
     totalt: 0,
-    overlamnade: 0,
-    pagaende: 0,
-    klara: 0,
+    i_leverans: 0,
+    levererade: 0,
+    fakturerade: 0,
+    betalda: 0,
     intjanat_totalt: 0,
   }) as Stats;
   const leaderboard = (leaderboardRes.data ?? []) as LeaderboardRow[];
@@ -83,16 +85,17 @@ export default async function KunderPage({
           <div className="kpi-meta">Vunna och överlämnade bolag</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Pågående</div>
-          <div className="kpi-value">
-            {fmtNumber(Number(stats.overlamnade) + Number(stats.pagaende))}
-          </div>
-          <div className="kpi-meta">Överlämnade + under arbete</div>
+          <div className="kpi-label">I leverans</div>
+          <div className="kpi-value">{fmtNumber(Number(stats.i_leverans))}</div>
+          <div className="kpi-meta">Överlämnad till 75 % klar</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Klara</div>
-          <div className="kpi-value">{fmtNumber(Number(stats.klara))}</div>
-          <div className="kpi-meta">Avslutade kundprocesser</div>
+          <div className="kpi-label">Fakturor ute</div>
+          <div className="kpi-value">{fmtNumber(Number(stats.fakturerade))}</div>
+          <div className="kpi-meta">
+            {fmtNumber(Number(stats.levererade))} att fakturera ·{" "}
+            {fmtNumber(Number(stats.betalda))} betalda
+          </div>
         </div>
       </div>
 

@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { addLeadAction, bulkAssignAction } from "@/actions/leads";
+import { createCallListAction } from "@/actions/ringlistor";
 import { EmptyState } from "@/components/empty-state";
-import { IconDownload, IconSearch } from "@/components/icons";
+import { IconDownload, IconPhone, IconSearch } from "@/components/icons";
 import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
 import { LEAD_STATUSES, sniLabel } from "@/lib/constants";
-import { fmtKr, fmtNumber, fmtPercent } from "@/lib/format";
+import { fmtKr, fmtNumber, fmtPercent, todayStockholm } from "@/lib/format";
 import {
   PAGE_SIZE,
   listParamsToQuery,
@@ -71,6 +72,10 @@ export function BolagTable({
   const [addNamn, setAddNamn] = useState("");
   const [addOrt, setAddOrt] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  const [rlOpen, setRlOpen] = useState(false);
+  const [rlNamn, setRlNamn] = useState("");
+  const [rlScope, setRlScope] = useState<"markerade" | "filter">("filter");
+  const [rlError, setRlError] = useState<string | null>(null);
 
   useEffect(() => {
     // Skriv inte över pågående inmatning – det är bara extern navigering
@@ -122,6 +127,41 @@ export function BolagTable({
         setBulkOwner("");
         router.refresh();
       }
+    });
+  }
+
+  function openRinglista(scope: "markerade" | "filter") {
+    setRlScope(selected.size > 0 ? scope : "filter");
+    setRlNamn(`Ringlista ${todayStockholm()}`);
+    setRlError(null);
+    setRlOpen(true);
+  }
+
+  function submitRinglista(e: React.FormEvent) {
+    e.preventDefault();
+    if (pending) return;
+    setRlError(null);
+    startTransition(async () => {
+      const result = await createCallListAction(
+        rlScope === "markerade" && selected.size > 0
+          ? {
+              namn: rlNamn,
+              // Markeringsordningen följer tabellens aktuella sortering.
+              leadIds: rows.filter((r) => selected.has(r.lead_id)).map((r) => r.lead_id),
+            }
+          : {
+              namn: rlNamn,
+              filter: Object.fromEntries(listParamsToQuery({ ...params, sida: 1 })),
+            },
+      );
+      if (!result.ok) {
+        setRlError(result.message);
+        return;
+      }
+      toast(result.message, "ok");
+      setRlOpen(false);
+      setSelected(new Set());
+      if (result.listId) router.push(`/ringlistor/${result.listId}`);
     });
   }
 
@@ -199,6 +239,12 @@ export function BolagTable({
           </p>
         </div>
         <div className="actions">
+          {(total > 0 || selected.size > 0) && (
+            <button type="button" className="btn" onClick={() => openRinglista("markerade")}>
+              <IconPhone />
+              Spara som ringlista
+            </button>
+          )}
           <a className="btn" href={`/api/export/csv${exportQuery ? `?${exportQuery}` : ""}`}>
             <IconDownload />
             Exportera CSV
@@ -237,6 +283,14 @@ export function BolagTable({
             disabled={pending || bulkOwner === ""}
           >
             Tilldela
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => openRinglista("markerade")}
+            disabled={pending}
+          >
+            Spara som ringlista
           </button>
           <button
             type="button"
@@ -549,6 +603,79 @@ export function BolagTable({
           )}
           <p className="small faint">
             Bolaget läggs in som lead med status Ny och tilldelas dig.
+          </p>
+        </form>
+      </Modal>
+
+      <Modal
+        open={rlOpen}
+        onClose={() => setRlOpen(false)}
+        titleId="rl-title"
+        title="Spara som ringlista"
+        footer={
+          <>
+            <button type="button" className="btn" onClick={() => setRlOpen(false)}>
+              Avbryt
+            </button>
+            <button
+              type="submit"
+              form="ringlista-form"
+              className={`btn btn-primary${pending ? " loading" : ""}`}
+              disabled={pending}
+            >
+              Skapa ringlista
+            </button>
+          </>
+        }
+      >
+        <form
+          id="ringlista-form"
+          onSubmit={submitRinglista}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div className="field">
+            <label htmlFor="rl-namn">Namn på listan</label>
+            <input
+              className="input"
+              id="rl-namn"
+              required
+              maxLength={80}
+              value={rlNamn}
+              onChange={(e) => setRlNamn(e.target.value)}
+            />
+          </div>
+          <fieldset className="field" style={{ border: 0, margin: 0, padding: 0 }}>
+            <legend className="small" style={{ fontWeight: 600, color: "var(--ink-2)" }}>
+              Vilka bolag?
+            </legend>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <input
+                type="radio"
+                name="rl-scope"
+                checked={rlScope === "markerade"}
+                disabled={selected.size === 0}
+                onChange={() => setRlScope("markerade")}
+              />
+              Markerade rader ({fmtNumber(selected.size)})
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <input
+                type="radio"
+                name="rl-scope"
+                checked={rlScope === "filter"}
+                onChange={() => setRlScope("filter")}
+              />
+              Hela det aktiva filtret ({fmtNumber(total)} bolag{total > 500 ? ", de 500 första tas med" : ""})
+            </label>
+          </fieldset>
+          {rlError && (
+            <div className="field">
+              <span className="error-text">{rlError}</span>
+            </div>
+          )}
+          <p className="small faint">
+            Listan delas med hela teamet. Avregistrerade bolag hoppas över när hela
+            filtret sparas.
           </p>
         </form>
       </Modal>

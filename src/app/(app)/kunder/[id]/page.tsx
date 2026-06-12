@@ -4,6 +4,7 @@ import { z } from "zod";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
 import { getSessionProfile } from "@/lib/auth";
+import { KUND_STATUSES } from "@/lib/constants";
 import { fmtDate, fmtDateTime, fmtKr } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
@@ -79,6 +80,10 @@ export default async function KundDetaljPage({
   const notes = notesRes.data ?? [];
   const users = usersRes.data ?? [];
   const totalRevenue = revenues.reduce((sum, r) => sum + Number(r.amount_sek), 0);
+  const stepIndex = Math.max(
+    0,
+    KUND_STATUSES.findIndex((s) => s.key === customer.status),
+  );
 
   return (
     <section className="view">
@@ -100,6 +105,25 @@ export default async function KundDetaljPage({
           controllerId={customer.controller_id}
           users={users}
         />
+      </div>
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-body" style={{ paddingTop: 14, paddingBottom: 14 }}>
+          <ol className="leverans-steg" aria-label="Leveransflöde">
+            {KUND_STATUSES.map((s, index) => (
+              <li
+                key={s.key}
+                className={
+                  index < stepIndex ? "done" : index === stepIndex ? "current" : undefined
+                }
+                aria-current={index === stepIndex ? "step" : undefined}
+              >
+                <span className="dot" />
+                {s.label}
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
 
       <div className="detail-grid">
