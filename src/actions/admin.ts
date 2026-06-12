@@ -59,6 +59,8 @@ export async function createUserAction(
       namn,
       roll,
       aktiv: true,
+      // Engångslösenordet ska bytas vid första inloggningen.
+      must_change_password: true,
     });
     if (profileError) {
       return { ok: false, message: `Kontot skapades men profilen kunde inte sparas: ${profileError.message}` };
@@ -215,6 +217,12 @@ export async function resetUserPasswordAction(
     if (error) {
       return { ok: false, message: `Kunde inte återställa: ${error.message}` };
     }
+
+    // Engångslösenordet ska bytas vid nästa inloggning.
+    await admin
+      .from("profiles")
+      .update({ must_change_password: true })
+      .eq("id", userId);
 
     await logActivity({
       actorId: session.userId,

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { clearFollowUpAction, setFollowUpAction } from "@/actions/leads";
 import { useToast } from "@/components/toast";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, todayStockholm } from "@/lib/format";
 
 interface UserOption {
   id: string;
@@ -21,7 +21,8 @@ const PRESETS = [
 function isoDateInDays(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  // Svensk kalenderdag, inte UTC – kring midnatt skiljer de sig.
+  return todayStockholm(d);
 }
 
 /**
@@ -51,7 +52,7 @@ export function FollowUpCard({
   const [note, setNote] = useState("");
   const [assignee, setAssignee] = useState(currentUserId);
 
-  const overdue = followUpAt !== null && followUpAt < new Date().toISOString().slice(0, 10);
+  const overdue = followUpAt !== null && followUpAt < todayStockholm();
 
   function save(datum: string) {
     if (pending || !datum) return;

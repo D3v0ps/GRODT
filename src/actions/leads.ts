@@ -77,11 +77,17 @@ export async function updateLeadStatusAction(
     }
 
     const supabase = await createSupabaseServerClient();
+    // Kund/Förlorad avslutar leadet – då ska ingen påminnelse ligga kvar
+    // i att göra-listan.
+    const terminal = status === "kund" || status === "forlorad";
     const { error } = await supabase
       .from("leads")
       .update({
         status,
         forlust_orsak: status === "forlorad" ? orsak || null : null,
+        ...(terminal
+          ? { follow_up_at: null, follow_up_note: null, follow_up_user: null }
+          : {}),
       })
       .eq("id", leadId);
     if (error) return { ok: false, message: `Kunde inte byta status: ${error.message}` };
@@ -225,15 +231,7 @@ export async function addLeadAction(
       };
     }
 
-    const settings = await getSyncFilter(admin);
-    const store = new SupabaseSyncStore(admin);
-    const outcome = await importCompany(store, settings, {
-      details,
-      financials,
-      kalla,
-      leadMode: "always",
-    });
-
+    // Stoppa avregistrerade bolag INNAN något skrivs till databasen.
     if (details.avregistreradDatum) {
       return {
         ok: false,
@@ -241,18 +239,20 @@ export async function addLeadAction(
       };
     }
 
+    const settings = await getSyncFilter(admin);
+    // Lead-skapandet audit-loggas av storen med användaren som aktör.
+    const store = new SupabaseSyncStore(admin, session.userId);
+    const outcome = await importCompany(store, settings, {
+      details,
+      financials,
+      kalla,
+      leadMode: "always",
+    });
+
     // Den som lägger till bolaget blir ansvarig direkt.
     if (outcome.leadCreated) {
       await admin.from("leads").update({ owner_id: session.userId }).eq("orgnr", orgnr);
     }
-
-    await logActivity({
-      actorId: session.userId,
-      entityType: "lead",
-      entityId: orgnr,
-      action: "lead_skapad",
-      payload: { orgnr, namn: details.namn, kalla },
-    });
     revalidateLeadViews(orgnr);
     return {
       ok: true,
@@ -294,6 +294,21 @@ export async function setFollowUpAction(
     if (!lead) return { ok: false, message: "Leadet hittades inte." };
 
     const supabase = await createSupabaseServerClient();
+
+    // Påminnelser till någon annan: kontrollera att personen finns och är aktiv.
+    let ansvarigNamn = "";
+    if (followUpUser !== session.userId) {
+      const { data: assignee } = await supabase
+        .from("profiles")
+        .select("namn, aktiv")
+        .eq("id", followUpUser)
+        .maybeSingle();
+      if (!assignee?.aktiv) {
+        return { ok: false, message: "Personen som ska följa upp är inte en aktiv användare." };
+      }
+      ansvarigNamn = assignee.namn;
+    }
+
     const { error } = await supabase
       .from("leads")
       .update({
@@ -309,7 +324,13 @@ export async function setFollowUpAction(
       entityType: "lead",
       entityId: lead.orgnr,
       action: "uppfoljning_satt",
-      payload: { orgnr: lead.orgnr, namn: lead.namn, datum, anteckning: anteckning ?? "" },
+      payload: {
+        orgnr: lead.orgnr,
+        namn: lead.namn,
+        datum,
+        anteckning: anteckning ?? "",
+        ansvarig: ansvarigNamn,
+      },
     });
     revalidateLeadViews(lead.orgnr);
     return { ok: true, message: `Uppföljning satt till ${datum}` };

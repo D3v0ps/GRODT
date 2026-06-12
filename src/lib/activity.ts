@@ -1,3 +1,4 @@
+import type { ActivityAction } from "./activity-actions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -14,35 +15,7 @@ export type ActivityEntityType =
   | "installningar"
   | "synk";
 
-export type ActivityAction =
-  | "lead_skapad"
-  | "status_andrad"
-  | "tilldelad"
-  | "massutdelning"
-  | "uppfoljning_satt"
-  | "uppfoljning_klar"
-  | "anteckning"
-  | "synk"
-  | "google_berikning"
-  | "csv_import"
-  | "export"
-  | "anvandare_skapad"
-  | "anvandare_inaktiverad"
-  | "anvandare_aktiverad"
-  | "roll_andrad"
-  | "losenord_bytt"
-  | "losenord_aterstallt"
-  | "profilbild_andrad"
-  | "installningar_andrade"
-  | "kund_overlamnad"
-  | "kund_skapad"
-  | "kund_status"
-  | "kund_controller"
-  | "kund_intakt"
-  | "kund_intakt_andrad"
-  | "kund_intakt_borttagen"
-  | "kund_kontakt_andrad"
-  | "kund_kommentar";
+export { ACTIVITY_ACTIONS, type ActivityAction } from "./activity-actions";
 
 export interface ActivityInput {
   actorId: string | null;
@@ -81,10 +54,35 @@ export interface ActivityRow {
 interface FetchActivitiesOptions {
   entityType?: ActivityEntityType;
   entityId?: string;
+  /** Användar-id, eller "system" för automatiska händelser (actor null). */
   actorId?: string;
-  /** YYYY-MM-DD – begränsar till den dagen (svensk tid ungefärligt: UTC-dygn). */
+  /** Begränsa till en handlingstyp. */
+  action?: ActivityAction;
+  /** YYYY-MM-DD – begränsar till det svenska dygnet (CET/CEST). */
   date?: string;
   limit?: number;
+  offset?: number;
+}
+
+/** UTC-offset (±HH:MM) för svensk tid det aktuella dygnet – hanterar sommartid. */
+function stockholmOffset(date: string): string {
+  const probe = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(probe.getTime())) return "+01:00";
+  const part = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    timeZoneName: "longOffset",
+  })
+    .formatToParts(probe)
+    .find((p) => p.type === "timeZoneName")?.value;
+  const match = part?.match(/GMT([+-]\d{2}:\d{2})/);
+  return match ? match[1] : "+01:00";
+}
+
+/** Nästa kalenderdag som YYYY-MM-DD. */
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -96,19 +94,24 @@ export async function fetchActivities(
   options: FetchActivitiesOptions,
 ): Promise<ActivityRow[]> {
   const admin = createSupabaseAdminClient();
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
   let query = admin
     .from("activities")
     .select("id, actor_id, entity_type, entity_id, action, payload, created_at, profiles(namn)")
     .order("created_at", { ascending: false })
-    .limit(options.limit ?? 50);
+    .range(offset, offset + limit - 1);
 
   if (options.entityType) query = query.eq("entity_type", options.entityType);
   if (options.entityId) query = query.eq("entity_id", options.entityId);
-  if (options.actorId) query = query.eq("actor_id", options.actorId);
+  if (options.actorId === "system") query = query.is("actor_id", null);
+  else if (options.actorId) query = query.eq("actor_id", options.actorId);
+  if (options.action) query = query.eq("action", options.action);
   if (options.date) {
+    const offsetSuffix = stockholmOffset(options.date);
     query = query
-      .gte("created_at", `${options.date}T00:00:00+02:00`)
-      .lt("created_at", `${options.date}T23:59:59.999+02:00`);
+      .gte("created_at", `${options.date}T00:00:00${offsetSuffix}`)
+      .lt("created_at", `${nextDay(options.date)}T00:00:00${offsetSuffix}`);
   }
 
   const { data, error } = await query;

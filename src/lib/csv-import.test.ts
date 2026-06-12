@@ -91,6 +91,29 @@ describe("rå CSV-parsning", () => {
     const win1252 = new Uint8Array([0x6f, 0x72, 0x74, 0x0a, 0xd6, 0x72, 0x65, 0x62, 0x72, 0x6f]);
     expect(decodeCsvBuffer(win1252)).toBe("ort\nÖrebro");
   });
+
+  it("decodeCsvBuffer hanterar UTF-16 med BOM (Excels Unicode-text)", () => {
+    const text = "namn\tort\nÅkers Bemanning AB\tSträngnäs";
+    const le = new Uint8Array(2 + text.length * 2);
+    le[0] = 0xff;
+    le[1] = 0xfe;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      le[2 + i * 2] = code & 0xff;
+      le[3 + i * 2] = code >> 8;
+    }
+    expect(decodeCsvBuffer(le)).toBe(text);
+
+    const be = new Uint8Array(2 + text.length * 2);
+    be[0] = 0xfe;
+    be[1] = 0xff;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      be[2 + i * 2] = code >> 8;
+      be[3 + i * 2] = code & 0xff;
+    }
+    expect(decodeCsvBuffer(be)).toBe(text);
+  });
 });
 
 describe("parseCompanyCsv – brett format", () => {

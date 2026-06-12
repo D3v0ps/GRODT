@@ -68,10 +68,12 @@ export default async function DashboardPage() {
     supabase.rpc(
       "list_leads",
       rpcArgs(
-        { ...parseListParams({}), sort: "tillvaxt", dir: "desc" },
+        { ...parseListParams({}), sort: "tillvaxt", dir: "desc", vaxt: 0.1 },
         tableYearWindow(settings),
-        60,
+        20,
         0,
+        // Endast otilldelade – filtreras i databasen, inte i 60 hämtade rader.
+        true,
       ),
     ),
   ]);
@@ -109,13 +111,7 @@ export default async function DashboardPage() {
 
   // Snabbväxare utan ansvarig – dagens ringlista.
   const growers = ((growersRes.data ?? []) as LeadListRow[])
-    .filter(
-      (row) =>
-        row.owner_id === null &&
-        row.oms_tillvaxt_pct !== null &&
-        Number(row.oms_tillvaxt_pct) > 0 &&
-        !row.avregistrerad,
-    )
+    .filter((row) => !row.avregistrerad)
     .slice(0, 5);
 
   return (
@@ -251,7 +247,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="radar-tile">
-            <span style={{ color: "#6BA2B9" }}>
+            <span style={{ color: "var(--blue)" }}>
               <RadarGlyph size={56} live />
             </span>
             <div>

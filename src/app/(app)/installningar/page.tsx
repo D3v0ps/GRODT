@@ -1,4 +1,5 @@
 import { getSessionProfile } from "@/lib/auth";
+import { avatarStoragePath } from "@/lib/avatar-url";
 import { fmtDateTime } from "@/lib/format";
 import { getEffectiveProviderName, providerLabel } from "@/lib/providers";
 import {
@@ -6,6 +7,7 @@ import {
   getAutoSyncEnabled,
   getSyncFilter,
 } from "@/lib/settings";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { IconInfo } from "@/components/icons";
 import { AccountCard } from "./account-card";
@@ -35,6 +37,16 @@ export default async function InstallningarPage() {
       : Promise.resolve({ data: null }),
   ]);
 
+  // Privat bucket: byt lagringssökvägen mot en signerad URL för förhandsvisningen.
+  let ownAvatarUrl: string | null = null;
+  const ownAvatarPath = avatarStoragePath(ownProfile?.avatar_url ?? null);
+  if (ownAvatarPath) {
+    const { data: signed } = await createSupabaseAdminClient()
+      .storage.from("avatars")
+      .createSignedUrl(ownAvatarPath, 3600);
+    ownAvatarUrl = signed?.signedUrl ?? null;
+  }
+
   const providerName = await getEffectiveProviderName(supabase);
   const apiConfigured = providerName !== null;
   const showBolagsverketTest =
@@ -63,7 +75,7 @@ export default async function InstallningarPage() {
             namn={session.namn}
             email={session.email}
             roll={session.roll}
-            avatarUrl={ownProfile?.avatar_url ?? null}
+            avatarUrl={ownAvatarUrl}
           />
         </div>
       )}

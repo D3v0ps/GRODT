@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { AvatarProvider } from "@/components/avatar";
 import { getSessionProfile } from "@/lib/auth";
+import { avatarStoragePath } from "@/lib/avatar-url";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -14,16 +16,30 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   ]);
   if (!profile) redirect("/login");
 
-  const avatarUrls = Object.fromEntries(
-    (avatarsRes.data ?? [])
-      .filter((p) => p.avatar_url)
-      .map((p) => [p.id, p.avatar_url as string]),
-  );
+  // Avatars-bucketen är privat: byt lagringssökvägarna mot signerade
+  // URL:er (en batchad förfrågan för hela teamet).
+  const pathToUser = new Map<string, string>();
+  for (const row of avatarsRes.data ?? []) {
+    const path = avatarStoragePath(row.avatar_url);
+    if (path) pathToUser.set(path, row.id);
+  }
+  const avatarUrls: Record<string, string> = {};
+  if (pathToUser.size > 0) {
+    const admin = createSupabaseAdminClient();
+    const { data: signed } = await admin.storage
+      .from("avatars")
+      .createSignedUrls([...pathToUser.keys()], 3600);
+    for (const item of signed ?? []) {
+      const userId = item.path ? pathToUser.get(item.path) : undefined;
+      if (userId && item.signedUrl) avatarUrls[userId] = item.signedUrl;
+    }
+  }
 
   return (
     <AvatarProvider urls={avatarUrls}>
       <AppShell
         profile={{ userId: profile.userId, namn: profile.namn, roll: profile.roll }}
+        mustChangePassword={profile.mustChangePassword}
       >
         {children}
       </AppShell>

@@ -49,6 +49,7 @@ export function AccountCard({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +99,10 @@ export function AccountCard({
     e.preventDefault();
     if (pending) return;
     setError(null);
+    if (!currentPassword) {
+      setError("Ange ditt nuvarande lösenord.");
+      return;
+    }
     if (password.length < 10) {
       setError("Lösenordet måste vara minst 10 tecken.");
       return;
@@ -107,11 +112,13 @@ export function AccountCard({
       return;
     }
     startTransition(async () => {
-      const result = await changeOwnPasswordAction({ password });
+      const result = await changeOwnPasswordAction({ currentPassword, password });
       toast(result.message, result.ok ? "ok" : "err");
       if (result.ok) {
+        setCurrentPassword("");
         setPassword("");
         setConfirm("");
+        router.refresh();
       } else {
         setError(result.message);
       }
@@ -187,6 +194,20 @@ export function AccountCard({
           style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}
         >
           <div className="field" style={{ width: 220 }}>
+            <label htmlFor="pw-current">Nuvarande lösenord</label>
+            <input
+              className="input"
+              id="pw-current"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={pending}
+              aria-invalid={error ? true : undefined}
+            />
+            <span className="hint">&nbsp;</span>
+          </div>
+          <div className="field" style={{ width: 220 }}>
             <label htmlFor="pw-new">Nytt lösenord</label>
             <input
               className="input"
@@ -218,7 +239,7 @@ export function AccountCard({
             <button
               type="submit"
               className={`btn btn-primary${pending ? " loading" : ""}`}
-              disabled={pending || !password}
+              disabled={pending || !password || !currentPassword}
             >
               Byt lösenord
             </button>

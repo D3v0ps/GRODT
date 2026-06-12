@@ -4,6 +4,7 @@ import { getSessionProfile } from "@/lib/auth";
 import { statusLabel } from "@/lib/constants";
 import { toCsv } from "@/lib/csv-export";
 import { fmtDate } from "@/lib/format";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   parseListParams,
   rpcArgs,
@@ -25,6 +26,15 @@ export async function GET(request: NextRequest) {
   const session = await getSessionProfile();
   if (!session) {
     return NextResponse.json({ error: "Inte inloggad" }, { status: 401 });
+  }
+
+  // Exporten kan omfatta hela databasen – strypt per användare.
+  const limit = checkRateLimit(`export:${session.userId}`, 5, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: `För många exporter – vänta ${limit.retryAfterSeconds} s` },
+      { status: 429 },
+    );
   }
 
   const params = parseListParams(

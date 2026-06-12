@@ -1049,3 +1049,38 @@ table.data .ansvarig-cell { display: flex; align-items: center; gap: 8px; height
   .sidebar, .toast-stack, .menu-btn { display: none; }
   .app { grid-template-columns: 1fr; }
 }
+
+/* ---------- Rundturen ---------- */
+.tour-card {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 90;
+  width: min(380px, calc(100vw - 36px));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tour-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tour-head strong { font-size: 14px; }
+.tour-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tour-foot .spacer { flex: 1; }
+
+/* ---------- Hjälp-sidan ---------- */
+.hjalp-prosa p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.65; color: var(--ink-2); }
+.hjalp-prosa p:last-child { margin-bottom: 0; }
+.hjalp-prosa strong { color: var(--ink); }

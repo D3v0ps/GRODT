@@ -69,9 +69,18 @@ export const CSV_MAX_ROWS = 1_000_000;
 /* Teckenkodning                                                        */
 /* ------------------------------------------------------------------ */
 
-/** UTF-8 i första hand; vid ersättningstecken antas Windows-1252 (svensk Excel). */
+/**
+ * UTF-16 med BOM hanteras först (Excels "Unicode-text"), därefter UTF-8;
+ * vid ersättningstecken antas Windows-1252 (svensk Excel).
+ */
 export function decodeCsvBuffer(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return stripBom(new TextDecoder("utf-16le").decode(bytes));
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return stripBom(new TextDecoder("utf-16be").decode(bytes));
+  }
   const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
   if (!utf8.includes("�")) return stripBom(utf8);
   try {

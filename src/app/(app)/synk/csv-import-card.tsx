@@ -158,7 +158,12 @@ export function CsvImportCard({ sniCodes }: { sniCodes: string[] }) {
           attempt++;
           if (attempt > 2) {
             const message = err instanceof Error ? err.message : String(err);
-            await postJson({ action: "abort", runId, message }).catch(() => {});
+            await postJson({
+              action: "abort",
+              runId,
+              fileName: fileName ?? "import.csv",
+              message,
+            }).catch(() => {});
             setFatalError(
               `Importen avbröts vid bolag ${fmtNumber(offset)} av ${fmtNumber(rows.length)}: ${message}. Redan importerade bolag ligger kvar – det är säkert att köra om samma fil.`,
             );
@@ -171,12 +176,13 @@ export function CsvImportCard({ sniCodes }: { sniCodes: string[] }) {
     }
 
     try {
+      // Totalerna ackumuleras server-side per batch – klienten skickar
+      // bara radfelen från tolkningen av filen.
       await postJson({
         action: "finish",
         runId,
         fileName: fileName ?? "import.csv",
         leadMode,
-        totals,
         radfel: parsed.errors
           .slice(0, 50)
           .map((e) => (e.row > 0 ? `Rad ${e.row}: ${e.message}` : e.message)),

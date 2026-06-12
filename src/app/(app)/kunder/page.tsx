@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { fmtKr, fmtNumber } from "@/lib/format";
 import {
   KUNDER_PAGE_SIZE,
+  kundParamsToQuery,
   parseKundParams,
   type CustomerListRow,
 } from "@/lib/customer-params";
@@ -51,6 +53,12 @@ export default async function KunderPage({
 
   const rows = (listRes.data ?? []) as CustomerListRow[];
   const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
+
+  // Sidlänk bortom sista sidan → tillbaka till första, med filtren kvar.
+  if (rows.length === 0 && params.sida > 1) {
+    const query = kundParamsToQuery({ ...params, sida: 1 }).toString();
+    redirect(`/kunder${query ? `?${query}` : ""}`);
+  }
   const stats = ((statsRes.data ?? [])[0] ?? {
     totalt: 0,
     overlamnade: 0,

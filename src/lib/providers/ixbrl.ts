@@ -25,6 +25,9 @@ const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
 
+/** Tak per uppackad fil – skyddar mot zip-bomber i nedladdade dokument. */
+const MAX_ENTRY_BYTES = 50 * 1024 * 1024;
+
 interface ZipEntry {
   name: string;
   data: Buffer;
@@ -45,9 +48,13 @@ export function extractZipEntries(buffer: Buffer): ZipEntry[] {
 
   const entryCount = buffer.readUInt16LE(eocd + 10);
   let offset = buffer.readUInt32LE(eocd + 16);
+  if (entryCount === 0xffff || offset === 0xffff_ffff) {
+    throw new Error("ZIP64-arkiv stöds inte.");
+  }
 
   const entries: ZipEntry[] = [];
   for (let i = 0; i < entryCount; i++) {
+    if (offset + 46 > buffer.length) break;
     if (buffer.readUInt32LE(offset) !== CENTRAL_SIGNATURE) break;
     const method = buffer.readUInt16LE(offset + 10);
     const compressedSize = buffer.readUInt32LE(offset + 20);
@@ -55,19 +62,29 @@ export function extractZipEntries(buffer: Buffer): ZipEntry[] {
     const extraLength = buffer.readUInt16LE(offset + 30);
     const commentLength = buffer.readUInt16LE(offset + 32);
     const localOffset = buffer.readUInt32LE(offset + 42);
+    if (compressedSize === 0xffff_ffff || localOffset === 0xffff_ffff) {
+      throw new Error("ZIP64-arkiv stöds inte.");
+    }
     const name = buffer.toString("utf8", offset + 46, offset + 46 + nameLength);
 
-    if (buffer.readUInt32LE(localOffset) === LOCAL_SIGNATURE) {
+    if (
+      localOffset + 30 <= buffer.length &&
+      buffer.readUInt32LE(localOffset) === LOCAL_SIGNATURE
+    ) {
       const localNameLength = buffer.readUInt16LE(localOffset + 26);
       const localExtraLength = buffer.readUInt16LE(localOffset + 28);
       const dataStart = localOffset + 30 + localNameLength + localExtraLength;
-      const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
-      try {
-        const data =
-          method === 8 ? inflateRawSync(compressed) : Buffer.from(compressed);
-        entries.push({ name, data });
-      } catch {
-        // Hoppa över filer som inte går att packa upp.
+      if (dataStart + compressedSize <= buffer.length) {
+        const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
+        try {
+          const data =
+            method === 8
+              ? inflateRawSync(compressed, { maxOutputLength: MAX_ENTRY_BYTES })
+              : Buffer.from(compressed);
+          entries.push({ name, data });
+        } catch {
+          // Hoppa över filer som inte går att packa upp (eller är för stora).
+        }
       }
     }
     offset += 46 + nameLength + extraLength + commentLength;
@@ -109,15 +126,32 @@ function attribute(tag: string, name: string): string | null {
   return match ? match[1] : null;
 }
 
-/** Tolkar taggat siffervärde: "5 200 000", "1.234,5" → tal. */
-function parseTaggedNumber(raw: string): number | null {
-  const text = raw
+/**
+ * Tolkar taggat siffervärde med hänsyn till ix-formatattributet.
+ * Svenska årsredovisningar använder oftast komma som decimaltecken
+ * ("1.234,5" eller "5 200 000"), men taxonomin tillåter även
+ * dot-decimal ("1,234.5") – utan formatkännedom blir sådana värden
+ * fel med en faktor 10.
+ */
+export function parseTaggedNumber(raw: string, format?: string | null): number | null {
+  let text = raw
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;|&#160;|[\s  ]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".")
+    .replace(/[−–—]/g, "-")
     .trim();
-  if (text === "" || text === "-" || text === "–") return null;
+  if (text === "" || text === "-") return null;
+
+  const fmt = (format ?? "").toLowerCase();
+  if (fmt.includes("empty") || fmt.includes("nocontent")) return null;
+  if (fmt.includes("zero")) return 0; // ixt:fixed-zero
+  if (fmt.includes("dotdecimal") || fmt.includes("dot-decimal")) {
+    // Decimaltecken är punkt; komma är tusentalsavskiljare.
+    text = text.replace(/,/g, "");
+  } else {
+    // comma-decimal eller okänt/inget format: svensk praxis –
+    // punkt som tusental, komma som decimaltecken.
+    text = text.replace(/\./g, "").replace(",", ".");
+  }
   const value = Number(text);
   return Number.isFinite(value) ? value : null;
 }
@@ -152,7 +186,8 @@ export function parseIxbrlFinancials(xml: string): YearFinancials[] {
     const year = contextRef ? contextYears.get(contextRef) : undefined;
     if (!year) continue;
 
-    const parsed = parseTaggedNumber(match[2]);
+    const format = attribute(`<x ${attrs}>`, "format");
+    const parsed = parseTaggedNumber(match[2], format);
     if (parsed === null) continue;
 
     const scale = Number(attribute(`<x ${attrs}>`, "scale") ?? "0");

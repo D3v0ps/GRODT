@@ -46,7 +46,14 @@ export function parseListParams(raw: RawSearchParams): ListParams {
   }
   const parsed = listParamsSchema.safeParse(single);
   if (parsed.success) return parsed.data;
-  return listParamsSchema.parse({});
+  // En ogiltig parameter ska inte nollställa ÖVRIGA filter (viktigt för
+  // t.ex. CSV-exporten) – släpp bara de nycklar som inte validerar.
+  for (const issue of parsed.error.issues) {
+    const key = issue.path[0];
+    if (typeof key === "string") delete single[key];
+  }
+  const retry = listParamsSchema.safeParse(single);
+  return retry.success ? retry.data : listParamsSchema.parse({});
 }
 
 /** Bygger en querystring av parametrarna (utelämnar defaultvärden). */
@@ -97,12 +104,14 @@ export function rpcArgs(
   years: [number, number, number, number],
   limit: number,
   offset: number,
+  onlyUnassigned = false,
 ) {
   return {
     p_search: params.sok || null,
     p_status: params.status ?? null,
     p_ort: params.ort ?? null,
     p_owner: params.ansvarig ?? null,
+    p_only_unassigned: onlyUnassigned,
     p_rev_min: params.oms ? params.oms * 1_000_000 : null,
     p_rev_max: null,
     p_year1: years[0],

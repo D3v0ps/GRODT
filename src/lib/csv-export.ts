@@ -6,10 +6,16 @@
 const BOM = "﻿";
 
 export function csvEscape(value: string): string {
-  if (/[";\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Formelinjektion: text som inleds med =, +, -, @ eller tab/CR tolkas som
+  // formel när filen öppnas i Excel. Rena tal (t.ex. negativ tillväxt) är
+  // ofarliga och lämnas orörda, övriga prefixas med apostrof.
+  const looksLikeNumber = /^-?\d+(?:[.,]\d+)?$/.test(value);
+  const guarded =
+    /^[=+\-@\t\r]/.test(value) && !looksLikeNumber ? `'${value}` : value;
+  if (/[";\n\r]/.test(guarded)) {
+    return `"${guarded.replace(/"/g, '""')}"`;
   }
-  return value;
+  return guarded;
 }
 
 export function toCsv(rows: (string | number | null)[][]): string {

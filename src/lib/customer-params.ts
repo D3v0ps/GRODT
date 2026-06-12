@@ -28,7 +28,14 @@ export function parseKundParams(raw: RawSearchParams): KundListParams {
     if (v !== undefined && v !== "") single[key] = v;
   }
   const parsed = kundParamsSchema.safeParse(single);
-  return parsed.success ? parsed.data : kundParamsSchema.parse({});
+  if (parsed.success) return parsed.data;
+  // En ogiltig parameter ska inte nollställa övriga filter.
+  for (const issue of parsed.error.issues) {
+    const key = issue.path[0];
+    if (typeof key === "string") delete single[key];
+  }
+  const retry = kundParamsSchema.safeParse(single);
+  return retry.success ? retry.data : kundParamsSchema.parse({});
 }
 
 export function kundParamsToQuery(params: Partial<KundListParams>): URLSearchParams {

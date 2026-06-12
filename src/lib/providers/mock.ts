@@ -77,8 +77,9 @@ function buildFinancials(
       2,
       Math.round((latestEmployees * revenue) / Math.max(1, latestRevenue)),
     );
-    // Resultat som andel av omsättning, avrundat till hela tusental kr.
-    const profit = Math.round((revenue * marginTenths) / 1000) * 100;
+    // Resultat som andel av omsättningen (marginTenths = tiondels procent,
+    // 30 ⇒ 3,0 %), avrundat till hela hundratal kronor.
+    const profit = Math.round((revenue * marginTenths) / 1000 / 100) * 100;
     return { year, revenueSek: revenue, profitSek: profit, employees };
   });
 }

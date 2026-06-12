@@ -18,7 +18,7 @@ export default function LoginPage() {
       </div>
       <div className="login-card">
         <div className="brandline">
-          <span style={{ color: "#1E252B" }}>
+          <span style={{ color: "var(--ink)" }}>
             <RadarGlyph size={34} live />
           </span>
           <span className="wordmark">GRODT</span>

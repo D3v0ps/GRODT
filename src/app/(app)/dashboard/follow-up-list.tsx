@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { clearFollowUpAction } from "@/actions/leads";
 import { useToast } from "@/components/toast";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, todayStockholm } from "@/lib/format";
 
 export interface FollowUpRow {
   leadId: string;
@@ -21,7 +21,7 @@ export function FollowUpList({ rows }: { rows: FollowUpRow[] }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStockholm();
 
   function markDone(leadId: string) {
     if (pending) return;
@@ -42,14 +42,14 @@ export function FollowUpList({ rows }: { rows: FollowUpRow[] }) {
             <span
               className="mono small"
               style={{
-                width: 86,
+                width: 96,
                 flex: "none",
                 fontWeight: 600,
                 color: overdue ? "var(--error)" : isToday ? "var(--accent-deep)" : "var(--ink-2)",
               }}
-              title={overdue ? "Förfallen" : isToday ? "Idag" : undefined}
+              title={overdue ? `Förfallen – skulle gjorts ${fmtDate(row.datum)}` : isToday ? "Idag" : undefined}
             >
-              {overdue ? "Förfallen" : isToday ? "Idag" : fmtDate(row.datum)}
+              {overdue ? `Förf. ${fmtDate(row.datum).slice(5)}` : isToday ? "Idag" : fmtDate(row.datum)}
             </span>
             <span className="txt" style={{ minWidth: 0 }}>
               <Link href={`/bolag/${row.orgnr}`}>

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getEffectiveProviderName } from "@/lib/providers";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -8,6 +9,13 @@ import { performSync } from "@/lib/sync/run";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/** Konstanttidsjämförelse – läcker inte hemlighetens längd eller prefix. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
+
 /**
  * Schemalagd synk via Vercel Cron (se vercel.json). Skyddad med
  * CRON_SECRET – Vercel skickar den som "Authorization: Bearer <secret>".
@@ -17,8 +25,8 @@ export async function GET(request: NextRequest) {
   if (!secret) {
     return NextResponse.json({ ok: false, error: "CRON_SECRET är inte konfigurerad" }, { status: 500 });
   }
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${secret}`) {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!safeEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ ok: false, error: "Obehörig" }, { status: 401 });
   }
 

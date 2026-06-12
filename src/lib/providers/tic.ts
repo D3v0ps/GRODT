@@ -1,6 +1,6 @@
 import { formatSniCode } from "@/lib/constants";
 import { normalizeOrgnr } from "@/lib/format";
-import { sekToTkr, tkrToSek } from "./units";
+import { tkrToSek } from "./units";
 import type {
   CompanyDataProvider,
   CompanyDetails,
@@ -210,9 +210,10 @@ export class TicProvider implements CompanyDataProvider {
       params.sniCodes.length === 1
         ? `sni_2007Code:=${toTicSniCode(params.sniCodes[0])}`
         : `sni_2007Code:=[${params.sniCodes.map(toTicSniCode).join(",")}]`;
-    // Grovt förfilter på halva tröskeln i tkr – exakt ELLER-logik körs lokalt.
-    const revenueFloorTkr = Math.floor(sekToTkr(params.revenueMinSek) / 2);
-    const filterBy = [sniFilter, "isCeased:=false", `rs_NetSalesK:>=${revenueFloorTkr}`].join(" && ");
+    // Inget omsättningsförfilter: tic filtrerar på SENASTE årets siffra,
+    // vilket skulle missa bolag som kvalificerar via ett tidigare år
+    // (ELLER-logiken). Den exakta kvalificeringen körs alltid lokalt.
+    const filterBy = [sniFilter, "isCeased:=false"].join(" && ");
 
     const data = await this.fetchJson<TicSearchResponse>("/search-public/companies", {
       q: "*",

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addLeadAction, bulkAssignAction } from "@/actions/leads";
 import { EmptyState } from "@/components/empty-state";
 import { IconDownload, IconSearch } from "@/components/icons";
-import { Modal } from "@/components/modal";
+import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
@@ -62,8 +62,10 @@ export function BolagTable({
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState(params.sok);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkOwner, setBulkOwner] = useState("");
+  const [confirmUnassign, setConfirmUnassign] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addOrgnr, setAddOrgnr] = useState("");
   const [addNamn, setAddNamn] = useState("");
@@ -71,7 +73,13 @@ export function BolagTable({
   const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
-    setSearch(params.sok);
+    // Skriv inte över pågående inmatning – det är bara extern navigering
+    // (t.ex. "Rensa alla filter") som ska återställa sökfältet. Utan
+    // vakten raderas slutet av söktexten när ett äldre sidsvar hinner
+    // ikapp en snabb skrivning.
+    if (debounce.current === null && document.activeElement !== searchRef.current) {
+      setSearch(params.sok);
+    }
   }, [params.sok]);
 
   // Rensa markeringen när listan byter innehåll (sida/filter).
@@ -95,15 +103,23 @@ export function BolagTable({
   }
 
   function runBulkAssign() {
-    if (pending || selected.size === 0) return;
+    // Kräver ett uttryckligt val – ingen tyst "ta bort tilldelning" som
+    // default, och borttagning bekräftas separat.
+    if (pending || selected.size === 0 || bulkOwner === "") return;
+    if (bulkOwner === "__remove" && !confirmUnassign) {
+      setConfirmUnassign(true);
+      return;
+    }
+    setConfirmUnassign(false);
     startTransition(async () => {
       const result = await bulkAssignAction({
         leadIds: [...selected],
-        ownerId: bulkOwner || null,
+        ownerId: bulkOwner === "__remove" ? null : bulkOwner,
       });
       toast(result.message, result.ok ? "ok" : "err");
       if (result.ok) {
         setSelected(new Set());
+        setBulkOwner("");
         router.refresh();
       }
     });
@@ -142,6 +158,7 @@ export function BolagTable({
     setSearch(value);
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(() => {
+      debounce.current = null;
       navigate({ sok: value });
     }, 300);
   }
@@ -205,18 +222,19 @@ export function BolagTable({
             onChange={(e) => setBulkOwner(e.target.value)}
             style={{ maxWidth: 220 }}
           >
-            <option value="">Ta bort tilldelning</option>
+            <option value="">Välj säljare …</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.namn}
               </option>
             ))}
+            <option value="__remove">Ta bort tilldelning</option>
           </select>
           <button
             type="button"
             className={`btn btn-primary btn-sm${pending ? " loading" : ""}`}
             onClick={runBulkAssign}
-            disabled={pending}
+            disabled={pending || bulkOwner === ""}
           >
             Tilldela
           </button>
@@ -236,6 +254,7 @@ export function BolagTable({
           <span className="search">
             <IconSearch />
             <input
+              ref={searchRef}
               className="input"
               type="search"
               placeholder="Sök bolag, orgnr eller ort …"
@@ -447,10 +466,21 @@ export function BolagTable({
       </div>
 
       <p className="small faint" style={{ marginTop: 10 }}>
-        Röd punkt <span className="qual-mark" style={{ margin: "0 2px" }} /> = året som
-        kvalificerar bolaget när det andra året ligger under tröskeln. Dämpade belopp
-        ligger under {fmtKr(threshold)}.
+        Mässingspunkten <span className="qual-mark" style={{ margin: "0 2px" }} /> markerar
+        året som kvalificerar bolaget när det andra året ligger under tröskeln. Dämpade
+        belopp ligger under {fmtKr(threshold)}.
       </p>
+
+      <ConfirmDialog
+        open={confirmUnassign}
+        title="Ta bort tilldelningen?"
+        body={`${selected.size} markerade leads blir utan ansvarig säljare och hamnar bland de otilldelade.`}
+        actionLabel="Ta bort tilldelning"
+        destructive
+        busy={pending}
+        onConfirm={runBulkAssign}
+        onCancel={() => setConfirmUnassign(false)}
+      />
 
       <Modal
         open={addOpen}
@@ -547,14 +577,18 @@ function BolagRow({
   const values = [row.oms1, row.oms2, row.oms3, row.oms4];
   const underTitle = `Under tröskel ${fmtKr(threshold)}`;
   const markTitle = "Kvalificerande år (når tröskeln)";
-  // Röd punkt på kvalificeringsåret när det andra kvalificeringsåret
-  // ligger under tröskeln (ELLER-logiken synliggjord).
+  // Punkt på kvalificeringsåret när det andra kvalificeringsåret ligger
+  // under tröskeln (ELLER-logiken synliggjord). Visas bara när båda
+  // kvalificeringsåren faktiskt syns i fönstret – annars går jämförelsen
+  // inte att göra.
+  const qualVisible = qualYears.every((y) => years.includes(y));
   const qualValue = (year: number) => values[years.indexOf(year)] ?? null;
   const qualOver = (year: number) => {
     const v = qualValue(year);
     return v !== null && v >= threshold;
   };
   const showQualMark = (year: number) => {
+    if (!qualVisible) return false;
     if (year !== qualYears[0] && year !== qualYears[1]) return false;
     const other = year === qualYears[0] ? qualYears[1] : qualYears[0];
     return qualOver(year) && !qualOver(other);

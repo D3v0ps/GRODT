@@ -44,6 +44,17 @@ export async function saveSettingsAction(
     const before = await getSyncFilter(supabase);
     const beforeAuto = await getAutoSyncEnabled(supabase);
 
+    const filterChanges: string[] = [];
+    if (before.sniCodes.join(",") !== sniCodes.join(",")) {
+      filterChanges.push(`SNI: ${before.sniCodes.join(", ")} → ${sniCodes.join(", ")}`);
+    }
+    if (before.revenueMinSek !== revenueMinSek) {
+      filterChanges.push(`Tröskel: ${fmtKr(before.revenueMinSek)} → ${fmtKr(revenueMinSek)}`);
+    }
+    if (before.revenueYears.join("/") !== revenueYears.join("/")) {
+      filterChanges.push(`Räkenskapsår: ${before.revenueYears.join("/")} → ${revenueYears.join("/")}`);
+    }
+
     const { error: filterError } = await supabase.from("app_settings").upsert({
       key: "sync_filter",
       value: {
@@ -62,19 +73,27 @@ export async function saveSettingsAction(
       updated_at: new Date().toISOString(),
     });
     if (autoError) {
-      return { ok: false, message: `Kunde inte spara: ${autoError.message}` };
+      // Filtren är redan sparade – logga den delen och säg som det är,
+      // i stället för att låtsas att ingenting ändrades.
+      await logActivity({
+        actorId: session.userId,
+        entityType: "installningar",
+        entityId: "app_settings",
+        action: "installningar_andrade",
+        payload: {
+          beskrivning:
+            (filterChanges.length > 0 ? `${filterChanges.join(" · ")} · ` : "") +
+            "OBS: automatik-flaggan kunde inte sparas",
+        },
+      });
+      revalidatePath("/installningar");
+      return {
+        ok: false,
+        message: `Filtren sparades, men automatiskt svep kunde inte ändras: ${autoError.message}`,
+      };
     }
 
-    const changes: string[] = [];
-    if (before.sniCodes.join(",") !== sniCodes.join(",")) {
-      changes.push(`SNI: ${before.sniCodes.join(", ")} → ${sniCodes.join(", ")}`);
-    }
-    if (before.revenueMinSek !== revenueMinSek) {
-      changes.push(`Tröskel: ${fmtKr(before.revenueMinSek)} → ${fmtKr(revenueMinSek)}`);
-    }
-    if (before.revenueYears.join("/") !== revenueYears.join("/")) {
-      changes.push(`Räkenskapsår: ${before.revenueYears.join("/")} → ${revenueYears.join("/")}`);
-    }
+    const changes = [...filterChanges];
     if (beforeAuto !== autoSync) {
       changes.push(`Automatiskt svep: ${autoSync ? "på" : "av"}`);
     }

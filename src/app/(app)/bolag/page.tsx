@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import {
   PAGE_SIZE,
+  listParamsToQuery,
   parseListParams,
   rpcArgs,
   type LeadListRow,
@@ -32,6 +34,13 @@ export default async function BolagPage({
   const total = rows[0]?.total_count ? Number(rows[0].total_count) : 0;
   const orter = (orterRes.data ?? []) as string[];
   const users = usersRes.data ?? [];
+
+  // En sidlänk bortom sista sidan (t.ex. gammalt bokmärke efter att
+  // filter ändrats) ska inte visa "Inga bolag" – gå till första sidan.
+  if (rows.length === 0 && params.sida > 1) {
+    const query = listParamsToQuery({ ...params, sida: 1 }).toString();
+    redirect(`/bolag${query ? `?${query}` : ""}`);
+  }
 
   return (
     <section className="view view-wide">

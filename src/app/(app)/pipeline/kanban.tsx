@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { updateLeadStatusAction } from "@/actions/leads";
 import { Avatar } from "@/components/avatar";
 import { LossReasonDialog } from "@/components/loss-reason-dialog";
 import { useToast } from "@/components/toast";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/constants";
-import { fmtDate, fmtMkr } from "@/lib/format";
+import { LEAD_STATUSES, statusLabel, type LeadStatus } from "@/lib/constants";
+import { fmtDate, fmtMkr, todayStockholm } from "@/lib/format";
 
 export interface KanbanCard {
   leadId: string;
@@ -25,7 +25,9 @@ export interface KanbanCard {
 /**
  * Kanban med HTML5 drag & drop enligt designen: draget kort 45 % opacitet,
  * målkolumnen får streckad Duvblå outline, släpp = statusbyte + toast +
- * logg (via server action). Dubbelklick öppnar bolagsdetaljen.
+ * logg (via server action). Dubbelklick (eller Enter) öppnar
+ * bolagsdetaljen, vänster/höger piltangent flyttar kortet mellan
+ * kolumnerna utan mus.
  */
 export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
   const router = useRouter();
@@ -35,10 +37,17 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
   const [lossCard, setLossCard] = useState<KanbanCard | null>(null);
+  const today = todayStockholm();
+
+  // Server-omrenderingar (router.refresh, navigering tillbaka) ska vinna
+  // över det lokala optimistiska tillståndet.
+  useEffect(() => {
+    setCards(initialCards);
+  }, [initialCards]);
 
   function performMove(card: KanbanCard, status: LeadStatus, orsak?: string) {
-    const previous = card.status;
-    // Optimistiskt: flytta direkt, återställ vid fel.
+    // Optimistiskt: flytta direkt, återställ HELA kortet vid fel
+    // (statusen och nollställda "dagar i kolumnen").
     setCards((current) =>
       current.map((c) => (c.leadId === card.leadId ? { ...c, status, dagar: 0 } : c)),
     );
@@ -46,15 +55,21 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
       const result = await updateLeadStatusAction({ leadId: card.leadId, status, orsak });
       toast(result.message, result.ok ? "ok" : "err");
       if (!result.ok) {
-        setCards((current) =>
-          current.map((c) =>
-            c.leadId === card.leadId ? { ...c, status: previous } : c,
-          ),
-        );
+        setCards((current) => current.map((c) => (c.leadId === card.leadId ? card : c)));
       } else {
         router.refresh();
       }
     });
+  }
+
+  function requestMove(card: KanbanCard, status: LeadStatus) {
+    if (card.status === status) return;
+    // Förlorad kräver orsak – fråga innan flytten genomförs.
+    if (status === "forlorad") {
+      setLossCard(card);
+      return;
+    }
+    performMove(card, status);
   }
 
   function drop(status: LeadStatus) {
@@ -62,14 +77,17 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
     if (!dragId) return;
     const card = cards.find((c) => c.leadId === dragId);
     setDragId(null);
-    if (!card || card.status === status) return;
+    if (!card) return;
+    requestMove(card, status);
+  }
 
-    // Förlorad kräver orsak – fråga innan flytten genomförs.
-    if (status === "forlorad") {
-      setLossCard(card);
-      return;
-    }
-    performMove(card, status);
+  /** Vänster/höger pil flyttar kortet ett steg i pipelinen. */
+  function moveByKeyboard(card: KanbanCard, direction: -1 | 1) {
+    const index = LEAD_STATUSES.findIndex((s) => s.key === card.status);
+    if (index === -1) return;
+    const target = LEAD_STATUSES[index + direction];
+    if (!target) return;
+    requestMove(card, target.key);
   }
 
   return (
@@ -111,6 +129,8 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
                   className={`kcard${dragId === card.leadId ? " dragging" : ""}`}
                   draggable
                   tabIndex={0}
+                  role="button"
+                  aria-label={`${card.namn} – ${statusLabel(card.status)}. Enter öppnar bolaget, vänster/höger pil flyttar i pipelinen.`}
                   onDragStart={(e) => {
                     setDragId(card.leadId);
                     e.dataTransfer.effectAllowed = "move";
@@ -120,6 +140,13 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
                   onDoubleClick={() => router.push(`/bolag/${card.orgnr}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") router.push(`/bolag/${card.orgnr}`);
+                    else if (e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      moveByKeyboard(card, -1);
+                    } else if (e.key === "ArrowRight") {
+                      e.preventDefault();
+                      moveByKeyboard(card, 1);
+                    }
                   }}
                 >
                   <div className="k-namn">{card.namn}</div>
@@ -141,9 +168,7 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
                         style={{
                           marginLeft: 6,
                           color:
-                            card.followUpAt < new Date().toISOString().slice(0, 10)
-                              ? "var(--error)"
-                              : "var(--blue-deep)",
+                            card.followUpAt < today ? "var(--error)" : "var(--blue-deep)",
                         }}
                         title={`Uppföljning ${fmtDate(card.followUpAt)}`}
                       >

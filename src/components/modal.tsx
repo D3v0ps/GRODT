@@ -24,11 +24,38 @@ export function Modal({
   alert?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Fokusfälla: Tab cirkulerar inom modalen i stället för att hamna
+      // i sidan bakom.
+      if (e.key === "Tab") {
+        const root = ref.current;
+        if (!root) return;
+        const focusables = [
+          ...root.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ];
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        const inside = active instanceof HTMLElement && root.contains(active);
+        if (e.shiftKey && (active === first || !inside)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !inside)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -36,13 +63,20 @@ export function Modal({
 
   // Fokus flyttas in EN gång när modalen öppnas – beroendet får inte
   // inkludera onClose (återskapas per render), annars rycks fokus
-  // tillbaka till första fältet vid varje tangenttryckning.
+  // tillbaka till första fältet vid varje tangenttryckning. Vid stängning
+  // återlämnas fokus till elementet som öppnade modalen.
   useEffect(() => {
     if (!open) return;
+    restoreRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusable = ref.current?.querySelector<HTMLElement>(
       "input, select, textarea, button.btn-primary, button.btn-accent, button",
     );
     focusable?.focus();
+    return () => {
+      restoreRef.current?.focus?.();
+      restoreRef.current = null;
+    };
   }, [open]);
 
   if (!open) return null;

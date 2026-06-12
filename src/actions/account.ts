@@ -1,21 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { logActivity } from "@/lib/activity";
 import { requireUser } from "@/lib/auth";
+import { avatarStoragePath } from "@/lib/avatar-url";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ActionResult } from "./types";
 
 const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Ange ditt nuvarande lösenord."),
   password: z
     .string()
     .min(10, "Lösenordet måste vara minst 10 tecken.")
     .max(128),
 });
 
-/** Byt sitt eget lösenord (Inställningar → Mitt konto). */
+/**
+ * Byt sitt eget lösenord (Inställningar → Mitt konto). Kräver nuvarande
+ * lösenord – en kvarglömd inloggad dator ska inte räcka för att ta över
+ * kontot.
+ */
 export async function changeOwnPasswordAction(
   input: z.infer<typeof passwordSchema>,
 ): Promise<ActionResult> {
@@ -24,6 +32,29 @@ export async function changeOwnPasswordAction(
     const parsed = passwordSchema.safeParse(input);
     if (!parsed.success) {
       return { ok: false, message: parsed.error.issues[0]?.message ?? "Ogiltigt lösenord." };
+    }
+
+    const limit = checkRateLimit(`password:${session.userId}`, 5, 10 * 60_000);
+    if (!limit.ok) {
+      return {
+        ok: false,
+        message: `För många försök – vänta ${limit.retryAfterSeconds} s.`,
+      };
+    }
+
+    // Verifiera nuvarande lösenord med en fristående klient så att den
+    // riktiga sessionens cookies inte rörs.
+    const verifier = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { error: verifyError } = await verifier.auth.signInWithPassword({
+      email: session.email,
+      password: parsed.data.currentPassword,
+    });
+    if (verifyError) {
+      return { ok: false, message: "Fel nuvarande lösenord." };
     }
 
     const supabase = await createSupabaseServerClient();
@@ -39,6 +70,13 @@ export async function changeOwnPasswordAction(
       };
     }
 
+    // Lösenordet är bytt – kravet från en admin-återställning är uppfyllt.
+    const admin = createSupabaseAdminClient();
+    await admin
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", session.userId);
+
     await logActivity({
       actorId: session.userId,
       entityType: "anvandare",
@@ -46,6 +84,7 @@ export async function changeOwnPasswordAction(
       action: "losenord_bytt",
       payload: { namn: session.namn },
     });
+    revalidatePath("/", "layout");
     return { ok: true, message: "Lösenordet är bytt" };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
@@ -58,14 +97,6 @@ export async function changeOwnPasswordAction(
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-/** "…/avatars/<sökväg>" → "<sökväg>", för att städa bort gamla bilder. */
-function avatarPathFromUrl(url: string | null): string | null {
-  if (!url) return null;
-  const marker = "/avatars/";
-  const index = url.indexOf(marker);
-  return index === -1 ? null : url.slice(index + marker.length);
-}
 
 export interface AvatarActionResult extends ActionResult {
   avatarUrl?: string | null;
@@ -103,18 +134,19 @@ export async function updateAvatarAction(
     if (uploadError) {
       return { ok: false, message: `Kunde inte ladda upp: ${uploadError.message}` };
     }
-    const { data: publicUrl } = admin.storage.from("avatars").getPublicUrl(path);
 
+    // Bucketen är privat: profilen lagrar sökvägen och appen signerar
+    // URL:er vid rendering ((app)/layout).
     const { error: updateError } = await admin
       .from("profiles")
-      .update({ avatar_url: publicUrl.publicUrl })
+      .update({ avatar_url: path })
       .eq("id", session.userId);
     if (updateError) {
       return { ok: false, message: `Kunde inte spara profilen: ${updateError.message}` };
     }
 
     // Städa bort den gamla bilden (best effort).
-    const oldPath = avatarPathFromUrl(profile?.avatar_url ?? null);
+    const oldPath = avatarStoragePath(profile?.avatar_url ?? null);
     if (oldPath && oldPath !== path) {
       await admin.storage.from("avatars").remove([oldPath]);
     }
@@ -126,8 +158,15 @@ export async function updateAvatarAction(
       action: "profilbild_andrad",
       payload: { namn: session.namn },
     });
+    const { data: signed } = await admin.storage
+      .from("avatars")
+      .createSignedUrl(path, 3600);
     revalidatePath("/", "layout");
-    return { ok: true, message: "Profilbilden är uppdaterad", avatarUrl: publicUrl.publicUrl };
+    return {
+      ok: true,
+      message: "Profilbilden är uppdaterad",
+      avatarUrl: signed?.signedUrl ?? null,
+    };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
   }
@@ -151,7 +190,7 @@ export async function removeAvatarAction(): Promise<AvatarActionResult> {
     if (error) {
       return { ok: false, message: `Kunde inte ta bort: ${error.message}` };
     }
-    const oldPath = avatarPathFromUrl(profile?.avatar_url ?? null);
+    const oldPath = avatarStoragePath(profile?.avatar_url ?? null);
     if (oldPath) {
       await admin.storage.from("avatars").remove([oldPath]);
     }

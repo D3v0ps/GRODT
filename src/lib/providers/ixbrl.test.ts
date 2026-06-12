@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractZipEntries, parseAnnualReport, parseIxbrlFinancials } from "./ixbrl";
+import {
+  extractZipEntries,
+  parseAnnualReport,
+  parseIxbrlFinancials,
+  parseTaggedNumber,
+} from "./ixbrl";
 
 /** Syntetisk iXBRL enligt svenska taxonomin (se-gen-base). */
 const IXBRL = `<?xml version="1.0" encoding="UTF-8"?>
@@ -52,6 +57,47 @@ describe("iXBRL-tolkning av årsredovisningar", () => {
 
   it("returnerar tomt för dokument utan taggar", () => {
     expect(parseIxbrlFinancials("<html><body>Skannad PDF utan taggar</body></html>")).toEqual([]);
+  });
+});
+
+describe("Sifferformat (ix-formatattributet)", () => {
+  it("dot-decimal: komma är tusentalsavskiljare, punkt decimal", () => {
+    expect(parseTaggedNumber("1,234.5", "ixt:numdotdecimal")).toBe(1234.5);
+    expect(parseTaggedNumber("12,345", "ixt4:num-dot-decimal")).toBe(12345);
+  });
+
+  it("comma-decimal/svensk standard: punkt är tusentalsavskiljare, komma decimal", () => {
+    expect(parseTaggedNumber("1.234,5", "ixt:numcommadecimal")).toBe(1234.5);
+    expect(parseTaggedNumber("5 200 000", null)).toBe(5_200_000);
+    expect(parseTaggedNumber("1.234,5", null)).toBe(1234.5);
+  });
+
+  it("fixed-zero ger 0 och tomt/streck ger null", () => {
+    expect(parseTaggedNumber("ignoreras", "ixt:fixed-zero")).toBe(0);
+    expect(parseTaggedNumber("", null)).toBeNull();
+    expect(parseTaggedNumber("–", null)).toBeNull();
+  });
+
+  it("typografiskt minustecken tolkas som minus", () => {
+    expect(parseTaggedNumber("−120 500", null)).toBe(-120_500);
+  });
+});
+
+describe("ZIP-hårdning", () => {
+  it("avvisar ZIP64-arkiv med tydligt fel", () => {
+    const zip = buildStoredZip("a.xhtml", Buffer.from("<p/>", "utf8"));
+    // Skriv 0xFFFF i EOCD-antalet – ZIP64-markör.
+    zip.writeUInt16LE(0xffff, zip.length - 22 + 10);
+    expect(() => extractZipEntries(zip)).toThrow(/ZIP64/);
+  });
+
+  it("hoppar över poster som pekar utanför bufferten", () => {
+    const zip = buildStoredZip("a.xhtml", Buffer.from("<p/>", "utf8"));
+    // Förstör local header-offseten i centralkatalogen.
+    const eocdOffset = zip.length - 22;
+    const centralOffset = zip.readUInt32LE(eocdOffset + 16);
+    zip.writeUInt32LE(0x7fff_0000, centralOffset + 42);
+    expect(extractZipEntries(zip)).toEqual([]);
   });
 });
 

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/providers/types";
 import { importCompany, runSync } from "./engine";
 import { InMemorySyncStore } from "./store";
+import { sanitizeFinancials } from "./supabase-store";
 
 const settings = {
   sniCodes: ["78.100"],
@@ -243,5 +244,43 @@ describe("importCompany (delas av synk och CSV-import)", () => {
     expect(first).toEqual({ company: "created", leadCreated: true });
     expect(second).toEqual({ company: "updated", leadCreated: false });
     expect(store.leads.size).toBe(1);
+  });
+
+  it("nyckeltal med null skriver aldrig över befintliga värden (trelägesmerge)", async () => {
+    const store = new InMemorySyncStore();
+    // Först bokslut från Bolagsverket med resultat …
+    await importCompany(store, settings, {
+      details,
+      financials: [{ year: 2022, revenueSek: 8_000_000, profitSek: 560_000, employees: 12 }],
+      kalla: "bolagsverket",
+    });
+    // … sedan en CSV som bara har omsättning för samma år.
+    await importCompany(store, settings, {
+      details,
+      financials: [{ year: 2022, revenueSek: 8_100_000, profitSek: null, employees: null }],
+      kalla: "csv",
+    });
+    const rows = store.financialsFor(details.orgnr);
+    expect(rows).toEqual([
+      {
+        year: 2022,
+        revenueSek: 8_100_000,
+        profitSek: 560_000,
+        employees: 12,
+        soliditetPct: null,
+      },
+    ]);
+  });
+});
+
+describe("sanitizeFinancials", () => {
+  it("nollar negativ omsättning/anställda men behåller negativt resultat", () => {
+    const rows = sanitizeFinancials([
+      { year: 2024, revenueSek: -1, profitSek: -120_500, employees: -3 },
+      { year: 1234, revenueSek: 5_000_000, profitSek: null, employees: null },
+    ]);
+    expect(rows).toEqual([
+      { year: 2024, revenueSek: null, profitSek: -120_500, employees: null },
+    ]);
   });
 });

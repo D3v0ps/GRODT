@@ -66,7 +66,7 @@ export async function handoffCustomerAction(
     const supabase = await createSupabaseServerClient();
     const { data: lead } = await supabase
       .from("leads")
-      .select("id, status, orgnr, companies(namn)")
+      .select("id, status, orgnr, owner_id, companies(namn)")
       .eq("orgnr", parsed.data.orgnr)
       .maybeSingle();
     if (!lead) return { ok: false, message: "Bolaget har inget lead att lämna över." };
@@ -84,24 +84,16 @@ export async function handoffCustomerAction(
       controllerNamn = controller.namn;
     }
 
-    // Vunnet bolag ska stå som Kund i pipelinen.
-    if (lead.status !== "kund") {
-      await supabase.from("leads").update({ status: "kund" }).eq("id", lead.id);
-      await logActivity({
-        actorId: session.userId,
-        entityType: "lead",
-        entityId: lead.orgnr,
-        action: "status_andrad",
-        payload: { orgnr: lead.orgnr, namn, fran: lead.status, till: "kund" },
-      });
-    }
-
+    // Skapa kunden FÖRST – unika nyckeln på orgnr är dubblettvakten, och
+    // misslyckas insättningen ska leadet lämnas helt orört.
+    // Affären krediteras leadets ansvariga säljare (topplistan), inte den
+    // som råkar klicka på överlämningen.
     const { data: customer, error } = await supabase
       .from("customers")
       .insert({
         orgnr: lead.orgnr,
         lead_id: lead.id,
-        saljare_id: session.userId,
+        saljare_id: lead.owner_id ?? session.userId,
         controller_id: controllerId,
       })
       .select("id")
@@ -113,12 +105,34 @@ export async function handoffCustomerAction(
       return { ok: false, message: `Kunde inte lämna över: ${error.message}` };
     }
 
+    // Vunnet bolag ska stå som Kund i pipelinen – och påminnelsen utgår.
+    if (lead.status !== "kund") {
+      await supabase
+        .from("leads")
+        .update({
+          status: "kund",
+          follow_up_at: null,
+          follow_up_note: null,
+          follow_up_user: null,
+        })
+        .eq("id", lead.id);
+      await logActivity({
+        actorId: session.userId,
+        entityType: "lead",
+        entityId: lead.orgnr,
+        action: "status_andrad",
+        payload: { orgnr: lead.orgnr, namn, fran: lead.status, till: "kund" },
+      });
+    }
+
+    let noteWarning = "";
     if (kommentar) {
-      await supabase.from("customer_notes").insert({
+      const { error: noteError } = await supabase.from("customer_notes").insert({
         customer_id: customer.id,
         author_id: session.userId,
         body: kommentar,
       });
+      if (noteError) noteWarning = " – men kommentaren kunde inte sparas";
     }
 
     await logActivity({
@@ -132,8 +146,8 @@ export async function handoffCustomerAction(
     return {
       ok: true,
       message: controllerNamn
-        ? `${namn} överlämnad till ${controllerNamn}`
-        : `${namn} överlämnad till controllers`,
+        ? `${namn} överlämnad till ${controllerNamn}${noteWarning}`
+        : `${namn} överlämnad till controllers${noteWarning}`,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
@@ -190,12 +204,39 @@ export async function createManualCustomerAction(
       if (error) return { ok: false, message: `Kunde inte skapa bolaget: ${error.message}` };
     }
 
+    // Befintligt lead flyttas till Kund – det ska synas i tidslinjen, och
+    // en eventuell påminnelse ska utgå.
+    const { data: prevLead } = await admin
+      .from("leads")
+      .select("id, status")
+      .eq("orgnr", orgnr)
+      .maybeSingle();
+
     const { data: lead, error: leadError } = await admin
       .from("leads")
-      .upsert({ orgnr, status: "kund" }, { onConflict: "orgnr" })
+      .upsert(
+        {
+          orgnr,
+          status: "kund",
+          follow_up_at: null,
+          follow_up_note: null,
+          follow_up_user: null,
+        },
+        { onConflict: "orgnr" },
+      )
       .select("id")
       .single();
     if (leadError) return { ok: false, message: `Kunde inte skapa lead: ${leadError.message}` };
+
+    if (prevLead && prevLead.status !== "kund") {
+      await logActivity({
+        actorId: session.userId,
+        entityType: "lead",
+        entityId: orgnr,
+        action: "status_andrad",
+        payload: { orgnr, namn, fran: prevLead.status, till: "kund" },
+      });
+    }
 
     const { error: customerError } = await admin.from("customers").insert({
       orgnr,

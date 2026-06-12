@@ -9,6 +9,21 @@ describe("CSV-export", () => {
     expect(csvEscape("Vanligt namn AB")).toBe("Vanligt namn AB");
   });
 
+  it("neutraliserar formelinjektion (=, +, -, @) med apostrof", () => {
+    expect(csvEscape("=HYPERLINK(\"http://ond.se\")")).toBe(
+      "\"'=HYPERLINK(\"\"http://ond.se\"\")\"",
+    );
+    expect(csvEscape("+46 8 123 45 67")).toBe("'+46 8 123 45 67");
+    expect(csvEscape("@cmd")).toBe("'@cmd");
+    expect(csvEscape("-Bolaget AB")).toBe("'-Bolaget AB");
+  });
+
+  it("lämnar rena tal orörda, även negativa", () => {
+    expect(csvEscape("-12,5")).toBe("-12,5");
+    expect(csvEscape("-1200")).toBe("-1200");
+    expect(csvEscape("5000000")).toBe("5000000");
+  });
+
   it("bygger semikolonseparerad fil med BOM och CRLF", () => {
     const csv = toCsv([
       ["Bolagsnamn", "Orgnr"],

@@ -23,6 +23,13 @@ export interface SyncResult {
   updated: number; // befintliga bolag som synkades om
   leadsCreated: number;
   errors: SyncError[];
+  /** Sant om körningen stoppades i förtid av tidsbudgeten (inte ett fel). */
+  stoppedEarly: boolean;
+}
+
+export interface RunSyncOptions {
+  /** Epoch-ms; när tiden passerats avslutas körningen snyggt mellan bolag. */
+  deadlineMs?: number;
 }
 
 const MAX_PAGES = 200; // skyddsräcke mot oändlig paginering
@@ -42,6 +49,7 @@ export async function runSync(
   provider: CompanyDataProvider,
   store: SyncStore,
   settings: SyncSettings,
+  options: RunSyncOptions = {},
 ): Promise<SyncResult> {
   const result: SyncResult = {
     fetched: 0,
@@ -49,11 +57,18 @@ export async function runSync(
     updated: 0,
     leadsCreated: 0,
     errors: [],
+    stoppedEarly: false,
   };
   const seen = new Set<string>(); // dedupe inom körningen
+  const pastDeadline = () =>
+    options.deadlineMs !== undefined && Date.now() >= options.deadlineMs;
 
   let page = 1;
   for (let guard = 0; guard < MAX_PAGES; guard++) {
+    if (pastDeadline()) {
+      result.stoppedEarly = true;
+      break;
+    }
     let searchResult;
     try {
       searchResult = await provider.searchCompanies({
@@ -71,6 +86,10 @@ export async function runSync(
     }
 
     for (const summary of searchResult.companies) {
+      if (pastDeadline()) {
+        result.stoppedEarly = true;
+        break;
+      }
       if (seen.has(summary.orgnr)) continue;
       seen.add(summary.orgnr);
       try {
@@ -87,10 +106,21 @@ export async function runSync(
         if (outcome.leadCreated) result.leadsCreated++;
       } catch (e) {
         result.errors.push({ orgnr: summary.orgnr, message: messageOf(e) });
+        // Stämpla raden ändå – annars fastnar äldst-först-rotationen på
+        // samma trasiga bolag i varje körning.
+        try {
+          await store.touchCompany(summary.orgnr);
+        } catch {
+          // Stämpeln är best effort.
+        }
       }
     }
 
-    if (page >= searchResult.totalPages || searchResult.companies.length === 0) {
+    if (
+      result.stoppedEarly ||
+      page >= searchResult.totalPages ||
+      searchResult.companies.length === 0
+    ) {
       break;
     }
     page++;
@@ -150,7 +180,10 @@ export async function importCompany(
 
   let leadCreated = false;
   if (shouldHaveLead && !(await store.hasLead(input.details.orgnr))) {
-    await store.createLead(input.details.orgnr);
+    await store.createLead(input.details.orgnr, {
+      namn: input.details.namn,
+      kalla: input.kalla,
+    });
     leadCreated = true;
   }
   return { company: companyOutcome, leadCreated };

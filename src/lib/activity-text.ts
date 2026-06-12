@@ -70,8 +70,13 @@ export function actionLabel(action: string): string {
 export function activityDetail(action: string, payload: Payload): string {
   const namn = str(payload, "namn");
   switch (action) {
-    case "lead_skapad":
-      return `${namn} tillagd manuellt${str(payload, "kalla") === "bolagsverket" ? " (berikad från Bolagsverket)" : ""}`;
+    case "lead_skapad": {
+      const kalla = str(payload, "kalla");
+      if (kalla === "csv") return `${namn || str(payload, "orgnr")} nytt lead via CSV-importen`;
+      if (kalla === "bolagsverket") return `${namn} tillagd med data från Bolagsverket`;
+      if (kalla === "manuell" || kalla === "") return `${namn} tillagd manuellt`;
+      return `${namn || str(payload, "orgnr")} nytt lead via synk (${kalla})`;
+    }
     case "status_andrad": {
       const orsak = str(payload, "orsak");
       return `${namn}: ${statusLabel(str(payload, "fran"))} → ${statusLabel(str(payload, "till"))}${orsak ? ` (${orsak})` : ""}`;
@@ -97,8 +102,10 @@ export function activityDetail(action: string, payload: Payload): string {
       }
       return `${namn}: ${[str(payload, "telefon") && "telefon", str(payload, "hemsida") && "hemsida"].filter(Boolean).join(" + ") || "inget"} hämtat via Google (växel/publik profil)`;
     }
-    case "csv_import":
-      return `${str(payload, "fil")} – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade, ${num(payload, "leads")} leads`;
+    case "csv_import": {
+      const base = `${str(payload, "fil")} – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade, ${num(payload, "leads")} leads`;
+      return str(payload, "avbruten") === "ja" ? `${base} (avbruten)` : base;
+    }
     case "export":
       return `CSV-export, ${num(payload, "rader")} rader`;
     case "anvandare_skapad":
@@ -150,8 +157,11 @@ export function activityDetail(action: string, payload: Payload): string {
 export function activityFeedText(action: string, payload: Payload): string {
   const namn = str(payload, "namn");
   switch (action) {
-    case "lead_skapad":
-      return `lade till ${namn} som nytt lead`;
+    case "lead_skapad": {
+      const kalla = str(payload, "kalla");
+      if (kalla === "csv") return `importerade ${namn || str(payload, "orgnr")} som nytt lead`;
+      return `lade till ${namn || str(payload, "orgnr")} som nytt lead`;
+    }
     case "status_andrad":
       return `flyttade ${namn} till ${statusLabel(str(payload, "till"))}`;
     case "tilldelad": {
@@ -226,10 +236,13 @@ export function activityFeedText(action: string, payload: Payload): string {
 /** Tidslinjetext på bolags-/kundkortet ("Status ändrad till Dialog"). */
 export function activityTimelineText(action: string, payload: Payload): string {
   switch (action) {
-    case "lead_skapad":
-      return str(payload, "kalla") === "bolagsverket"
-        ? "Tillagd manuellt – berikad från Bolagsverket"
-        : "Tillagd manuellt";
+    case "lead_skapad": {
+      const kalla = str(payload, "kalla");
+      if (kalla === "csv") return "Nytt lead via CSV-importen";
+      if (kalla === "bolagsverket") return "Tillagd – berikad från Bolagsverket";
+      if (kalla === "manuell" || kalla === "") return "Tillagd manuellt";
+      return `Nytt lead via synk (${kalla})`;
+    }
     case "status_andrad": {
       const orsak = str(payload, "orsak");
       return `Status ändrad till ${statusLabel(str(payload, "till"))}${orsak ? ` – ${orsak}` : ""}`;

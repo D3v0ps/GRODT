@@ -12,6 +12,12 @@ export interface CompanyUpsert extends CompanyDetails {
   kalla: string;
 }
 
+/** Metadata för audit-loggen när ett lead skapas av synk/import. */
+export interface LeadMeta {
+  namn: string;
+  kalla: string;
+}
+
 export interface SyncStore {
   /** Upsert på orgnr. Returnerar om bolaget var nytt eller uppdaterades. */
   upsertCompany(company: CompanyUpsert): Promise<"created" | "updated">;
@@ -19,12 +25,17 @@ export interface SyncStore {
   upsertFinancials(orgnr: string, rows: YearFinancials[]): Promise<void>;
   hasLead(orgnr: string): Promise<boolean>;
   /** Skapar lead med status 'ny'. Måste vara no-op om lead redan finns. */
-  createLead(orgnr: string): Promise<void>;
+  createLead(orgnr: string, meta?: LeadMeta): Promise<void>;
   /**
    * Datahygien: bolaget är avregistrerat hos källan – markera ett
    * eventuellt lead som Förlorad. Returnerar true om ett lead ändrades.
    */
   markLeadLost(orgnr: string, namn: string, orsak: string): Promise<boolean>;
+  /**
+   * Stämplar last_synced_at utan annan skrivning – används när berikningen
+   * av ett bolag misslyckas, så att äldst-först-rotationen går vidare.
+   */
+  touchCompany(orgnr: string): Promise<void>;
 }
 
 /** Minneslagring för tester och torrkörningar. */
@@ -33,6 +44,7 @@ export class InMemorySyncStore implements SyncStore {
   readonly financials = new Map<string, YearFinancials>(); // key: orgnr:year
   readonly leads = new Set<string>();
   readonly lostLeads = new Set<string>();
+  readonly touched: string[] = [];
 
   async upsertCompany(company: CompanyUpsert): Promise<"created" | "updated"> {
     const existing = this.companies.get(company.orgnr);
@@ -82,8 +94,17 @@ export class InMemorySyncStore implements SyncStore {
   }
 
   async upsertFinancials(orgnr: string, rows: YearFinancials[]): Promise<void> {
+    // Samma trelägesmerge som SupabaseSyncStore: null skriver inte över.
     for (const row of rows) {
-      this.financials.set(`${orgnr}:${row.year}`, { ...row });
+      const key = `${orgnr}:${row.year}`;
+      const old = this.financials.get(key);
+      this.financials.set(key, {
+        ...row,
+        revenueSek: row.revenueSek ?? old?.revenueSek ?? null,
+        profitSek: row.profitSek ?? old?.profitSek ?? null,
+        employees: row.employees ?? old?.employees ?? null,
+        soliditetPct: row.soliditetPct ?? old?.soliditetPct ?? null,
+      });
     }
   }
 
@@ -91,8 +112,12 @@ export class InMemorySyncStore implements SyncStore {
     return this.leads.has(orgnr);
   }
 
-  async createLead(orgnr: string): Promise<void> {
+  async createLead(orgnr: string, _meta?: LeadMeta): Promise<void> {
     this.leads.add(orgnr);
+  }
+
+  async touchCompany(orgnr: string): Promise<void> {
+    this.touched.push(orgnr);
   }
 
   financialsFor(orgnr: string): YearFinancials[] {

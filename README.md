@@ -3,9 +3,14 @@
 **Get rich or die trying.** Internt, lösenordsskyddat verktyg för hela
 flödet inom rekrytering och bemanning (SNI 78.100): importera och hämta
 bolag, kvalificera dem mot en omsättningströskel, driv dem genom
-pipelinen – och när säljaren vunnit affären lämnas bolaget över till en
-controller under **Kunder**, med intäktsspårning, kommentarer och
-topplista. Hela gränssnittet är på svenska.
+pipelinen med uppföljningspåminnelser – och när säljaren vunnit affären
+lämnas bolaget över till en controller under **Kunder**, med
+intäktsspårning (redigerbar i efterhand), verifierade kontaktuppgifter,
+kommentarer och topplista. Bolagen berikas automatiskt från
+**Bolagsverkets öppna data** (bokslut ur digitala årsredovisningar) och
+kan kompletteras med telefon/hemsida från **Google Places** – alltid
+källmärkt *"via Google, kan vara växelnummer"*. Inbyggd hjälpsida med
+guidad **rundtur** finns under Hjälp. Hela gränssnittet är på svenska.
 
 Designstrukturen följer `design/DESIGN_SPEC.md`; färgtemat är omskinnat
 till **Smaragd & mässing** (mörk skogsgrön + mässingsaccent – tokens i
@@ -52,24 +57,29 @@ cp .env.example .env.local   # fyll i värdena
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publik anon-nyckel |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Endast server-side** – synk, audit log, kontohantering |
-| `DATA_PROVIDER` | `tic`, `mock` eller tomt (= endast CSV-import) |
+| `DATA_PROVIDER` | `bolagsverket`, `tic`, `mock` eller tomt (= endast CSV-import). Kan även styras via `app_settings`-nyckeln `data_provider`. |
+| `BOLAGSVERKET_CLIENT_ID` / `BOLAGSVERKET_CLIENT_SECRET` | OAuth2-uppgifter till Värdefulla datamängder (krävs när `DATA_PROVIDER=bolagsverket`; kan även ligga i hemlighetsvalvet) |
+| `BOLAGSVERKET_SYNC_LIMIT` | Max bolag som berikas per körning (default 40 – satt efter API-kvoten och funktionens tidsgräns) |
 | `TIC_API_KEY` | API-nyckel hos tic.io (krävs när `DATA_PROVIDER=tic`) |
+| `GOOGLE_PLACES_API_KEY` | Valfri – kontaktberikning (telefon/hemsida) via Places API (New); allt källmärks "via Google" |
 | `CRON_SECRET` | Hemlighet för `/api/cron/sync`, t.ex. `openssl rand -hex 32` |
 | `APP_BASE_URL` | Appens bas-URL |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_ADMIN_NAME` | Används av seed-skriptet |
 
 ### 3. Kör migrations
 
-Migrationsfilerna ligger i `supabase/migrations/`. Kör dem i ordning, t.ex.
-med Supabase CLI:
+Migrationsfilerna ligger i `supabase/migrations/`. Kör **samtliga** filer
+i filnamnsordning, t.ex. med Supabase CLI:
 
 ```bash
 supabase link --project-ref <PROJECT_REF>
 supabase db push
 ```
 
-…eller klistra in filerna i SQL-editorn i Supabase Studio
-(`20260610000001_init.sql` följt av `20260610000002_rpc.sql`).
+…eller klistra in filerna i SQL-editorn i Supabase Studio i tur och
+ordning (`20260610000001_init.sql` först). Obs:
+`20260612000008_avatars_private.sql` gör avatars-bucketen privat och ska
+köras **efter** att appkoden som signerar bild-URL:er är driftsatt.
 Projektet har även Supabase MCP-servern registrerad i `.mcp.json`, så en
 kodagent med MCP-åtkomst kan köra migrationerna åt dig.
 
@@ -180,47 +190,82 @@ implementerar gränssnittet + en rad i `src/lib/providers/index.ts`.
 
 ## Synk
 
-- **Manuellt:** knappen **"Hämta bolag nu"** i Import & synk (rate-limitad,
-  och endast en körning åt gången – vakt i `import_runs`).
+- **Manuellt:** knappen **"Hämta bolag nu"** i Import & synk (rate-limitad).
 - **Schemalagt:** Vercel Cron anropar `GET /api/cron/sync` måndagar 06:00
   UTC (≈ 08:00 svensk sommartid, se `vercel.json`). Skyddas av
-  `CRON_SECRET` och kan stängas av med växeln i Inställningar.
+  `CRON_SECRET` (konstanttidsjämförelse) och kan stängas av i Inställningar.
 - Flöde: provider → upsert `companies` + `company_financials` → nya
-  kvalificerade orgnr ⇒ lead med status `ny` → `import_runs` + audit log.
-  Idempotent: två körningar i rad ger inga dubbletter.
+  kvalificerade orgnr ⇒ lead med status `ny` (audit-loggat) →
+  `import_runs` + audit log. Idempotent: två körningar i rad ger inga
+  dubbletter. Nyckeltal merge:as per fält – en källa som saknar t.ex.
+  resultat skriver aldrig över ett befintligt värde.
+- **Robusthet:** max EN pågående körning åt gången (unikt partiellt index),
+  hängda körningar städas automatiskt, varje körning har en tidsbudget och
+  stannar snyggt i förtid (resten tas nästa gång), och bolag vars berikning
+  kraschar stämplas ändå så att rotationen aldrig fastnar.
+- **Datahygien:** bolag som avregistrerats hos Bolagsverket flyttas
+  automatiskt till Förlorad (loggat i tidslinjen); reklamspärr visas på
+  bolagskortet.
+
+## Uppföljningar (att göra-listan)
+
+Sätt "kontakta om 1 vecka / 1 månad / 3 månader" (eller eget datum) på
+bolagskortet, med valfri anteckning och vem som ska följa upp.
+Påminnelsen syns på dashboarden (förfallna i rött) och på kanban-korten
+tills den bockas av – och rensas automatiskt när leadet blir Kund eller
+Förlorad.
 
 ## Kundmodulen
 
 - **Flöde:** lead vinns (status Kund) → säljaren klickar **"Lämna över
   till controller"** på bolagskortet → bolaget blir kund under **Kunder**
-  med status Överlämnad → Pågående → Klar.
-- **Intäkter:** registreras löpande per kund (belopp i kr + beskrivning);
+  med status Överlämnad → Pågående → Klar. Affären krediteras leadets
+  ansvariga säljare i topplistan.
+- **Intäkter:** registreras löpande per kund (belopp i kr + beskrivning +
+  datum) och kan **redigeras/tas bort i efterhand** (av den som skapade
+  posten eller admin – varje ändring loggas med från/till-belopp);
   totalsumma per kund, i KPI:erna och i **Topplistan** per säljare.
+- **Kontaktuppgifter:** verifierad kontaktperson, telefon ("numret man
+  faktiskt når kunden på") och e-post per kund.
 - **Kommentarer:** delas av hela teamet, alltid med författare och tid.
+- **Förlustorsaker:** flytt till Förlorad kräver alltid en orsak – grunden
+  för statistik över varför affärer tappas.
 - **Roller:** Säljare, Controller och Admin (etiketter och arbetsflöde –
   alla aktiva användare kan läsa och arbeta med allt, endast admin hanterar
   konton/inställningar; varje mutation audit-loggas).
 - Kunder kan även läggas till manuellt under Kunder → "Lägg till kund".
 
+## Hjälp & rundtur
+
+**Hjälp** i menyn innehåller hela manualen (import, kvalificeringsregeln,
+pipeline, kundflödet, roller, FAQ) samt en guidad **rundtur** som
+navigerar genom alla vyer med ett beskrivande kort – perfekt vid
+onboarding av nya säljare.
+
 ## Säkerhet
 
 - **Auth:** Supabase e-post + lösenord. Invite-only – konton skapas av
-  admin under **Admin** (tillfälligt lösenord visas en gång). Egna lösenord
-  byts under **Inställningar → Mitt konto**; admin kan sätta nytt lösenord
-  för vem som helst under Admin. Middleware skyddar alla routes utom
-  `/login`; inaktiverade konton stängs ute på nästa request och spärras
-  (ban) i Auth.
+  admin under **Admin** (tillfälligt lösenord visas en gång och måste bytas
+  vid första inloggningen – appen påminner tills det är gjort). Eget
+  lösenordsbyte kräver det nuvarande lösenordet; admin kan återställa
+  vem som helst under Admin. Middleware skyddar alla routes utom `/login`;
+  inaktiverade konton stängs ute på nästa request och spärras (ban) i Auth.
 - **RLS:** ingen publik åtkomst alls. Inloggade aktiva användare läser
   bolag/bokslut/leads/anteckningar och får skapa/uppdatera leads och
   anteckningar. `activities` skrivs endast server-side och läses endast av
   admin (bolagets tidslinje serveras kurerat av servern). `profiles` och
-  `app_settings` skrivs endast av admin.
+  `app_settings` skrivs endast av admin. Profilbilderna ligger i en
+  **privat** bucket och serveras via signerade URL:er.
 - Service role-nyckeln används enbart server-side (`src/lib/supabase/admin.ts`
   vägrar köra i klient). Zod-validering i alla server actions; rate
-  limiting på synk-, import- och cron-endpoints.
-- **Audit log:** varje mutation (statusbyte, tilldelning, anteckning, synk,
-  CSV-import, export, användar- och inställningsändring) loggas med aktör,
-  handling och tidpunkt. Admin-vyn filtrerar per användare och datum.
+  limiting på synk-, import-, export- och cron-endpoints samt
+  lösenordsbyten. CSV-exporten neutraliserar formelinjektion
+  (`=`, `+`, `-`, `@`), och iXBRL-läsaren har zip-bombs-skydd.
+- **Audit log:** varje mutation (statusbyte, tilldelning, anteckning,
+  uppföljning, synk, CSV-import – inklusive leads skapade av synk/import –
+  export, kund-, användar- och inställningsändring) loggas med aktör,
+  handling och tidpunkt. Admin-vyn filtrerar per användare (inkl.
+  "Systemet"), handlingstyp och svensk kalenderdag, med bläddring.
 
 ## Tester, lint, bygge
 
@@ -266,11 +311,13 @@ examples/                Exempel-CSV för import
 supabase/migrations/     SQL-migrations (schema, RLS, RPC)
 scripts/seed.ts          Första admin + standardinställningar
 src/
-  app/                   Routes (login, dashboard, bolag, pipeline, synk, admin, …)
+  app/                   Routes (login, dashboard, bolag, pipeline, kunder,
+                         synk, admin, installningar, hjalp, …)
   actions/               Server actions (Zod-validerade, audit-loggade)
-  components/            Designsystemets React-komponenter
+  components/            Designsystemets React-komponenter (inkl. rundturen)
   lib/
-    providers/           CompanyDataProvider: tic / mock / uc-allabolag
+    providers/           CompanyDataProvider: bolagsverket / tic / mock /
+                         uc-allabolag + iXBRL-läsare + Google Places
     sync/                Synkmotor, importpipeline, Supabase-store
     csv-import.ts        CSV-parsern (rubrikmappning, beloppstolkning)
     qualification.ts     ELLER-logiken för omsättningsfiltret

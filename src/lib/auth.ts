@@ -6,6 +6,8 @@ export interface SessionProfile {
   email: string;
   namn: string;
   roll: Roll;
+  /** Sant efter admin-återställning – appen uppmanar till lösenordsbyte. */
+  mustChangePassword: boolean;
 }
 
 /**
@@ -23,7 +25,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("namn, roll, aktiv")
+    .select("namn, roll, aktiv, must_change_password")
     .eq("id", claims.sub)
     .maybeSingle();
 
@@ -37,6 +39,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     email: typeof claims.email === "string" ? claims.email : "",
     namn: profile.namn,
     roll,
+    mustChangePassword: profile.must_change_password === true,
   };
 }
 

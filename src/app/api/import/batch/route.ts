@@ -22,7 +22,8 @@ export const maxDuration = 60;
  *   abort  → markerar körningen som fel
  *
  * Auth: inloggad aktiv användare (cookies). Varje batch verifierar att
- * runId tillhör användaren och fortfarande är öppen.
+ * runId tillhör användaren och fortfarande är öppen. Totalerna
+ * ackumuleras server-side per batch – klienten kan inte påverka dem.
  */
 
 const detailsSchema = z.object({
@@ -62,35 +63,51 @@ const payloadSchema = z.discriminatedUnion("action", [
     runId: z.uuid(),
     fileName: z.string().min(1).max(200),
     leadMode: z.enum(["qualified", "always"]),
-    totals: z.object({
-      fetched: z.number().int().min(0),
-      created: z.number().int().min(0),
-      updated: z.number().int().min(0),
-      leadsCreated: z.number().int().min(0),
-    }),
     radfel: z.array(z.string().max(300)).max(50),
   }),
   z.object({
     action: z.literal("abort"),
     runId: z.uuid(),
+    fileName: z.string().max(200).optional(),
     message: z.string().max(500),
   }),
 ]);
+
+/** Vakt: en körning utan livstecken så här länge anses ha kraschat. */
+const STALE_RUN_MINUTES = 15;
+
+interface RunTotals {
+  fetched: number;
+  created: number;
+  updated: number;
+  leads_created: number;
+}
 
 async function verifyRun(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   runId: string,
   userId: string,
-) {
+): Promise<RunTotals | null> {
   const { data: run } = await admin
     .from("import_runs")
-    .select("id, started_by, status")
+    .select("id, started_by, status, progress_at, fetched, created, updated, leads_created")
     .eq("id", runId)
     .maybeSingle();
   if (!run || run.started_by !== userId || run.status !== "running") {
     return null;
   }
-  return run;
+  // Stalenessvakt: tar inte emot fler batchar till en körning som
+  // zombiestädningen när som helst kan komma att avbryta.
+  const staleCutoff = Date.now() - STALE_RUN_MINUTES * 60_000;
+  if (new Date(run.progress_at).getTime() < staleCutoff) {
+    return null;
+  }
+  return {
+    fetched: run.fetched ?? 0,
+    created: run.created ?? 0,
+    updated: run.updated ?? 0,
+    leads_created: run.leads_created ?? 0,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -130,6 +147,21 @@ export async function POST(request: NextRequest) {
 
   switch (payload.action) {
     case "start": {
+      // Zombiestädning: körningar utan livstecken markeras som fel, annars
+      // blockerar de unika indexet för pågående körningar för alltid.
+      const staleCutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60_000).toISOString();
+      await admin
+        .from("import_runs")
+        .update({
+          status: "fel",
+          finished_at: new Date().toISOString(),
+          errors: [
+            { orgnr: null, message: "Körningen avbröts: inget svar (avbruten av servern)." },
+          ],
+        })
+        .eq("status", "running")
+        .lt("progress_at", staleCutoff);
+
       const { data: run, error } = await admin
         .from("import_runs")
         .insert({
@@ -141,6 +173,12 @@ export async function POST(request: NextRequest) {
         .select("id")
         .single();
       if (error || !run) {
+        if (error?.code === "23505") {
+          return NextResponse.json(
+            { error: "En import eller synk pågår redan – vänta tills den är klar." },
+            { status: 409 },
+          );
+        }
         return NextResponse.json(
           { error: `Kunde inte starta importen: ${error?.message}` },
           { status: 500 },
@@ -150,8 +188,8 @@ export async function POST(request: NextRequest) {
     }
 
     case "batch": {
-      const run = await verifyRun(admin, payload.runId, session.userId);
-      if (!run) {
+      const totals = await verifyRun(admin, payload.runId, session.userId);
+      if (!totals) {
         return NextResponse.json({ error: "Okänd eller avslutad importkörning." }, { status: 409 });
       }
       // Defensiv normalisering server-side – klienten ska redan ha gjort detta.
@@ -167,7 +205,24 @@ export async function POST(request: NextRequest) {
       }
       try {
         const settings = await getSyncFilter(admin);
-        const result = await importBatch(admin, settings, rows, payload.leadMode);
+        const result = await importBatch(
+          admin,
+          settings,
+          rows,
+          payload.leadMode,
+          "csv",
+          session.userId,
+        );
+        await admin
+          .from("import_runs")
+          .update({
+            fetched: totals.fetched + rows.length,
+            created: totals.created + result.created,
+            updated: totals.updated + result.updated,
+            leads_created: totals.leads_created + result.leadsCreated,
+            progress_at: new Date().toISOString(),
+          })
+          .eq("id", payload.runId);
         return NextResponse.json({ ...result, invalid });
       } catch (e) {
         return NextResponse.json(
@@ -178,8 +233,8 @@ export async function POST(request: NextRequest) {
     }
 
     case "finish": {
-      const run = await verifyRun(admin, payload.runId, session.userId);
-      if (!run) {
+      const totals = await verifyRun(admin, payload.runId, session.userId);
+      if (!totals) {
         return NextResponse.json({ error: "Okänd eller avslutad importkörning." }, { status: 409 });
       }
       const hasErrors = payload.radfel.length > 0;
@@ -188,9 +243,6 @@ export async function POST(request: NextRequest) {
         .update({
           finished_at: new Date().toISOString(),
           status: hasErrors ? "fel" : "ok",
-          fetched: payload.totals.fetched,
-          created: payload.totals.created,
-          updated: payload.totals.updated,
           errors: payload.radfel.map((message) => ({ orgnr: null, message })),
         })
         .eq("id", payload.runId);
@@ -202,9 +254,9 @@ export async function POST(request: NextRequest) {
         action: "csv_import",
         payload: {
           fil: payload.fileName,
-          nya: payload.totals.created,
-          uppdaterade: payload.totals.updated,
-          leads: payload.totals.leadsCreated,
+          nya: totals.created,
+          uppdaterade: totals.updated,
+          leads: totals.leads_created,
           fel: payload.radfel.length,
           lead_lage: payload.leadMode,
         },
@@ -213,8 +265,8 @@ export async function POST(request: NextRequest) {
     }
 
     case "abort": {
-      const run = await verifyRun(admin, payload.runId, session.userId);
-      if (run) {
+      const totals = await verifyRun(admin, payload.runId, session.userId);
+      if (totals) {
         await admin
           .from("import_runs")
           .update({
@@ -223,6 +275,20 @@ export async function POST(request: NextRequest) {
             errors: [{ orgnr: null, message: payload.message || "Importen avbröts." }],
           })
           .eq("id", payload.runId);
+        await logActivity({
+          actorId: session.userId,
+          entityType: "synk",
+          entityId: payload.runId,
+          action: "csv_import",
+          payload: {
+            fil: payload.fileName ?? "",
+            nya: totals.created,
+            uppdaterade: totals.updated,
+            leads: totals.leads_created,
+            avbruten: "ja",
+            orsak: payload.message || "Importen avbröts.",
+          },
+        });
       }
       return NextResponse.json({ ok: true });
     }

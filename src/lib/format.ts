@@ -71,6 +71,15 @@ export function fmtDateTime(value: string | Date): string {
   return dateTimeFormatter.format(d);
 }
 
+/**
+ * Dagens datum (YYYY-MM-DD) i svensk tid – för jämförelser mot
+ * uppföljningsdatum. `toISOString()` ger UTC-dygnet, som kring midnatt
+ * skiljer sig från det svenska.
+ */
+export function todayStockholm(now: Date = new Date()): string {
+  return dateFormatter.format(now);
+}
+
 /** Antal hela dagar sedan en tidpunkt (för "4 d" på kanban-kort). */
 export function daysSince(value: string | Date, now: Date = new Date()): number {
   const d = typeof value === "string" ? new Date(value) : value;

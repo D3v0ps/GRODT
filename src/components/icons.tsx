@@ -137,3 +137,18 @@ export function IconError({ className = "icon" }: IconProps) {
     </svg>
   );
 }
+
+export function IconHelp({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M6.2 6.2A1.9 1.9 0 0 1 8 4.8c1.05 0 1.85.7 1.85 1.65 0 .9-.6 1.3-1.2 1.7-.45.3-.65.55-.65 1.1"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path d="M8 11.4v.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

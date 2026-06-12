@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompanyDetails, YearFinancials } from "@/lib/providers/types";
 import { qualifies } from "@/lib/qualification";
 import type { SyncSettings } from "./engine";
+import { sanitizeFinancials } from "./supabase-store";
 
 /**
  * Bulkimport för stora CSV-filer: i stället för 3–4 frågor per bolag görs
@@ -31,6 +32,8 @@ export async function importBatch(
   rows: BulkRow[],
   leadMode: "qualified" | "always",
   kalla = "csv",
+  /** Vem som importerar – för audit-loggen när nya leads skapas. */
+  actorId: string | null = null,
 ): Promise<BulkResult> {
   if (rows.length === 0) return { created: 0, updated: 0, leadsCreated: 0 };
   if (rows.length > BULK_BATCH_SIZE) {
@@ -73,17 +76,40 @@ export async function importBatch(
   );
   if (companyError) throw new Error(companyError.message);
 
-  const financialRows = rows.flatMap(({ details, financials }) =>
-    financials.map((f) => ({
-      orgnr: details.orgnr,
-      year: f.year,
-      revenue_sek: f.revenueSek,
-      profit_sek: f.profitSek,
-      employees: f.employees,
-      soliditet: f.soliditetPct ?? null,
-    })),
+  // Trelägesmerge för nyckeltalen: tomma kolumner i filen (null) får inte
+  // nollställa t.ex. resultat/soliditet som hämtats från Bolagsverket.
+  const sanitized = rows.map(({ details, financials }) => ({
+    orgnr: details.orgnr,
+    financials: sanitizeFinancials(financials),
+  }));
+  const financialKeys = sanitized.flatMap((r) =>
+    r.financials.map((f) => ({ orgnr: r.orgnr, year: f.year })),
   );
-  if (financialRows.length > 0) {
+  if (financialKeys.length > 0) {
+    const years = [...new Set(financialKeys.map((k) => k.year))];
+    const { data: prevRows, error: prevError } = await supabase
+      .from("company_financials")
+      .select("orgnr, year, revenue_sek, profit_sek, employees, soliditet")
+      .in("orgnr", orgnrs)
+      .in("year", years);
+    if (prevError) throw new Error(prevError.message);
+    const prevByKey = new Map(
+      (prevRows ?? []).map((r) => [`${r.orgnr}:${r.year}`, r]),
+    );
+
+    const financialRows = sanitized.flatMap(({ orgnr, financials }) =>
+      financials.map((f) => {
+        const old = prevByKey.get(`${orgnr}:${f.year}`);
+        return {
+          orgnr,
+          year: f.year,
+          revenue_sek: f.revenueSek ?? old?.revenue_sek ?? null,
+          profit_sek: f.profitSek ?? old?.profit_sek ?? null,
+          employees: f.employees ?? old?.employees ?? null,
+          soliditet: f.soliditetPct ?? old?.soliditet ?? null,
+        };
+      }),
+    );
     const { error } = await supabase
       .from("company_financials")
       .upsert(financialRows, { onConflict: "orgnr,year" });
@@ -112,14 +138,31 @@ export async function importBatch(
     const leadSet = new Set((existingLeads ?? []).map((r) => r.orgnr));
     const toInsert = wantedOrgnrs.filter((o) => !leadSet.has(o));
     if (toInsert.length > 0) {
-      const { error } = await supabase
+      const { data: insertedLeads, error } = await supabase
         .from("leads")
         .upsert(
           toInsert.map((orgnr) => ({ orgnr, status: "ny" })),
           { onConflict: "orgnr", ignoreDuplicates: true },
-        );
+        )
+        .select("orgnr");
       if (error) throw new Error(error.message);
-      leadsCreated = toInsert.length;
+      const inserted = (insertedLeads ?? []).map((r) => r.orgnr as string);
+      leadsCreated = inserted.length;
+
+      // Audit-loggen ska visa alla nya leads, även import-skapade.
+      if (inserted.length > 0) {
+        const namnByOrgnr = new Map(rows.map((r) => [r.details.orgnr, r.details.namn]));
+        const { error: logError } = await supabase.from("activities").insert(
+          inserted.map((orgnr) => ({
+            actor_id: actorId,
+            entity_type: "lead",
+            entity_id: orgnr,
+            action: "lead_skapad",
+            payload: { orgnr, namn: namnByOrgnr.get(orgnr) ?? null, kalla },
+          })),
+        );
+        if (logError) console.error("Kunde inte logga nya leads:", logError.message);
+      }
     }
   }
 
