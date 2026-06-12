@@ -102,6 +102,19 @@ export function avatarClass(id: string): string {
   return variants[hash % variants.length];
 }
 
+/**
+ * Procent med decimalkomma: "24,3 %", med tecken: "+24,3 %" / "−8,1 %".
+ */
+export function fmtPercent(value: number, opts: { sign?: boolean } = {}): string {
+  const tenths = Math.round(value * 10);
+  const negative = tenths < 0;
+  const abs = Math.abs(tenths);
+  const whole = Math.floor(abs / 10);
+  const decimal = abs % 10;
+  const prefix = negative ? MINUS : opts.sign && tenths > 0 ? "+" : "";
+  return `${prefix}${fmtNumber(whole)},${decimal}${NBSP}%`;
+}
+
 /** Normaliserar orgnr till "XXXXXX-XXXX". Returnerar null om ogiltigt. */
 export function normalizeOrgnr(input: string): string | null {
   const digits = input.replace(/\D/g, "");

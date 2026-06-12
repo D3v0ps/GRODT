@@ -8,7 +8,7 @@ import { LEAD_STATUS_KEYS } from "@/lib/constants";
 
 export const PAGE_SIZE = 25;
 
-export const SORT_KEYS = ["namn", "ort", "oms1", "oms2", "anst"] as const;
+export const SORT_KEYS = ["namn", "ort", "oms1", "oms2", "anst", "tillvaxt"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
 const listParamsSchema = z.object({
@@ -18,6 +18,8 @@ const listParamsSchema = z.object({
   ansvarig: z.uuid().optional(),
   /** Lägsta omsättning i mkr (5/10/20 i UI:t). */
   oms: z.coerce.number().int().min(1).max(100000).optional(),
+  /** Lägsta omsättningstillväxt i procent mellan de två visade åren. */
+  vaxt: z.coerce.number().min(-100).max(10000).optional(),
   sort: z.enum(SORT_KEYS).optional().default("namn"),
   dir: z.enum(["asc", "desc"]).optional().default("asc"),
   sida: z.coerce.number().int().min(1).optional().default(1),
@@ -48,6 +50,7 @@ export function listParamsToQuery(
   if (params.ort) q.set("ort", params.ort);
   if (params.ansvarig) q.set("ansvarig", params.ansvarig);
   if (params.oms) q.set("oms", String(params.oms));
+  if (params.vaxt !== undefined) q.set("vaxt", String(params.vaxt));
   if (params.sort && params.sort !== "namn") q.set("sort", params.sort);
   if (params.dir && params.dir !== "asc") q.set("dir", params.dir);
   if (params.sida && params.sida > 1) q.set("sida", String(params.sida));
@@ -59,12 +62,18 @@ export interface LeadListRow {
   orgnr: string;
   namn: string;
   ort: string | null;
+  sni_kod: string | null;
   antal_anstallda: number | null;
   status: string;
   owner_id: string | null;
   owner_namn: string | null;
   oms1: number | null;
   oms2: number | null;
+  anst1: number | null;
+  anst2: number | null;
+  oms_tillvaxt_pct: number | null;
+  avregistrerad: boolean;
+  reklamsparr: boolean;
   updated_at: string;
   total_count: number;
 }
@@ -85,6 +94,7 @@ export function rpcArgs(
     p_rev_max: null,
     p_year1: years[0],
     p_year2: years[1],
+    p_tillvaxt_min: params.vaxt ?? null,
     p_sort: params.sort,
     p_dir: params.dir,
     p_limit: limit,

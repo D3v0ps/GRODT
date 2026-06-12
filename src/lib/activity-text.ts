@@ -59,8 +59,10 @@ export function actionLabel(action: string): string {
 export function activityDetail(action: string, payload: Payload): string {
   const namn = str(payload, "namn");
   switch (action) {
-    case "status_andrad":
-      return `${namn}: ${statusLabel(str(payload, "fran"))} → ${statusLabel(str(payload, "till"))}`;
+    case "status_andrad": {
+      const orsak = str(payload, "orsak");
+      return `${namn}: ${statusLabel(str(payload, "fran"))} → ${statusLabel(str(payload, "till"))}${orsak ? ` (${orsak})` : ""}`;
+    }
     case "tilldelad": {
       const owner = str(payload, "ansvarig");
       return owner ? `${namn} → ${owner}` : `${namn}: tilldelning borttagen`;
@@ -174,8 +176,10 @@ export function activityFeedText(action: string, payload: Payload): string {
 /** Tidslinjetext på bolags-/kundkortet ("Status ändrad till Dialog"). */
 export function activityTimelineText(action: string, payload: Payload): string {
   switch (action) {
-    case "status_andrad":
-      return `Status ändrad till ${statusLabel(str(payload, "till"))}`;
+    case "status_andrad": {
+      const orsak = str(payload, "orsak");
+      return `Status ändrad till ${statusLabel(str(payload, "till"))}${orsak ? ` – ${orsak}` : ""}`;
+    }
     case "tilldelad": {
       const owner = str(payload, "ansvarig");
       return owner ? `Tilldelad ${owner}` : "Tilldelning borttagen";

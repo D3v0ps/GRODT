@@ -131,6 +131,16 @@ export async function importCompany(
   });
   await store.upsertFinancials(input.details.orgnr, input.financials);
 
+  // Datahygien: avregistrerade bolag ska aldrig ligga kvar som aktiva leads.
+  if (input.details.avregistreradDatum) {
+    await store.markLeadLost(
+      input.details.orgnr,
+      input.details.namn,
+      `Avregistrerat hos Bolagsverket ${input.details.avregistreradDatum}`,
+    );
+    return { company: companyOutcome, leadCreated: false };
+  }
+
   const shouldHaveLead =
     input.leadMode === "always" ||
     qualifies(

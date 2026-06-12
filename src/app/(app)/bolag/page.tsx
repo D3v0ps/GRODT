@@ -40,6 +40,7 @@ export default async function BolagPage({
         params={params}
         years={years}
         threshold={settings.revenueMinSek}
+        sniCodes={settings.sniCodes}
         orter={orter}
         users={users}
       />

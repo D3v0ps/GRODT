@@ -79,10 +79,14 @@ export function extractZipEntries(buffer: Buffer): ZipEntry[] {
 /* iXBRL-extraktion                                                     */
 /* ------------------------------------------------------------------ */
 
-const TAGS: { kind: "revenue" | "profit" | "employees"; names: string[] }[] = [
+const TAGS: {
+  kind: "revenue" | "profit" | "employees" | "solidity";
+  names: string[];
+}[] = [
   { kind: "revenue", names: ["se-gen-base:Nettoomsattning"] },
   { kind: "profit", names: ["se-gen-base:AretsResultat"] },
   { kind: "employees", names: ["se-gen-base:MedelantaletAnstallda"] },
+  { kind: "solidity", names: ["se-gen-base:Soliditet"] },
 ];
 
 /** contextRef → räkenskapsårets slutår, ur xbrli:context-elementen. */
@@ -130,7 +134,7 @@ export function parseIxbrlFinancials(xml: string): YearFinancials[] {
   const ensure = (year: number): YearFinancials => {
     let row = byYear.get(year);
     if (!row) {
-      row = { year, revenueSek: null, profitSek: null, employees: null };
+      row = { year, revenueSek: null, profitSek: null, employees: null, soliditetPct: null };
       byYear.set(year, row);
     }
     return row;
@@ -153,16 +157,24 @@ export function parseIxbrlFinancials(xml: string): YearFinancials[] {
 
     const scale = Number(attribute(`<x ${attrs}>`, "scale") ?? "0");
     const sign = attribute(`<x ${attrs}>`, "sign") === "-" ? -1 : 1;
-    const value = Math.round(parsed * 10 ** (Number.isFinite(scale) ? scale : 0)) * sign;
+    const scaled = parsed * 10 ** (Number.isFinite(scale) ? scale : 0) * sign;
 
     const row = ensure(year);
-    if (tag.kind === "revenue") row.revenueSek = value;
-    else if (tag.kind === "profit") row.profitSek = value;
-    else row.employees = Math.abs(value);
+    if (tag.kind === "revenue") row.revenueSek = Math.round(scaled);
+    else if (tag.kind === "profit") row.profitSek = Math.round(scaled);
+    else if (tag.kind === "employees") row.employees = Math.abs(Math.round(scaled));
+    // Soliditet är procent, inte kronor – behåll en decimal.
+    else row.soliditetPct = Math.round(scaled * 10) / 10;
   }
 
   return [...byYear.values()]
-    .filter((r) => r.revenueSek !== null || r.profitSek !== null || r.employees !== null)
+    .filter(
+      (r) =>
+        r.revenueSek !== null ||
+        r.profitSek !== null ||
+        r.employees !== null ||
+        (r.soliditetPct ?? null) !== null,
+    )
     .sort((a, b) => a.year - b.year);
 }
 

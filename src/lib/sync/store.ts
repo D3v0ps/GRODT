@@ -20,6 +20,11 @@ export interface SyncStore {
   hasLead(orgnr: string): Promise<boolean>;
   /** Skapar lead med status 'ny'. Måste vara no-op om lead redan finns. */
   createLead(orgnr: string): Promise<void>;
+  /**
+   * Datahygien: bolaget är avregistrerat hos källan – markera ett
+   * eventuellt lead som Förlorad. Returnerar true om ett lead ändrades.
+   */
+  markLeadLost(orgnr: string, namn: string, orsak: string): Promise<boolean>;
 }
 
 /** Minneslagring för tester och torrkörningar. */
@@ -27,6 +32,7 @@ export class InMemorySyncStore implements SyncStore {
   readonly companies = new Map<string, CompanyUpsert>();
   readonly financials = new Map<string, YearFinancials>(); // key: orgnr:year
   readonly leads = new Set<string>();
+  readonly lostLeads = new Set<string>();
 
   async upsertCompany(company: CompanyUpsert): Promise<"created" | "updated"> {
     const existing = this.companies.get(company.orgnr);
@@ -36,6 +42,7 @@ export class InMemorySyncStore implements SyncStore {
     }
     // Samma berikningsmerge som SupabaseSyncStore: null skriver aldrig
     // över befintliga värden, och namn-platshållare behåller riktigt namn.
+    // Berikningsfälten har undefined = "rör ej", null/värde = skriv.
     this.companies.set(company.orgnr, {
       ...company,
       namn:
@@ -48,8 +55,30 @@ export class InMemorySyncStore implements SyncStore {
       antalAnstallda: company.antalAnstallda ?? existing.antalAnstallda,
       hemsida: company.hemsida ?? existing.hemsida,
       telefon: company.telefon ?? existing.telefon,
+      verksamhetsbeskrivning:
+        company.verksamhetsbeskrivning === undefined
+          ? existing.verksamhetsbeskrivning
+          : company.verksamhetsbeskrivning,
+      registreringsdatum:
+        company.registreringsdatum === undefined
+          ? existing.registreringsdatum
+          : company.registreringsdatum,
+      bolagsform:
+        company.bolagsform === undefined ? existing.bolagsform : company.bolagsform,
+      avregistreradDatum:
+        company.avregistreradDatum === undefined
+          ? existing.avregistreradDatum
+          : company.avregistreradDatum,
+      reklamsparr:
+        company.reklamsparr === undefined ? existing.reklamsparr : company.reklamsparr,
     });
     return "updated";
+  }
+
+  async markLeadLost(orgnr: string, _namn: string, _orsak: string): Promise<boolean> {
+    if (!this.leads.has(orgnr) || this.lostLeads.has(orgnr)) return false;
+    this.lostLeads.add(orgnr);
+    return true;
   }
 
   async upsertFinancials(orgnr: string, rows: YearFinancials[]): Promise<void> {

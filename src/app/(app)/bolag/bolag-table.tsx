@@ -7,8 +7,8 @@ import { EmptyState } from "@/components/empty-state";
 import { IconDownload, IconSearch } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 import { AvatarWithName } from "@/components/avatar";
-import { LEAD_STATUSES } from "@/lib/constants";
-import { fmtKr, fmtNumber } from "@/lib/format";
+import { LEAD_STATUSES, sniLabel } from "@/lib/constants";
+import { fmtKr, fmtNumber, fmtPercent } from "@/lib/format";
 import {
   PAGE_SIZE,
   listParamsToQuery,
@@ -28,6 +28,7 @@ interface Props {
   params: ListParams;
   years: [number, number];
   threshold: number;
+  sniCodes: string[];
   orter: string[];
   users: UserOption[];
 }
@@ -37,7 +38,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: "ort", label: "Ort" },
 ];
 
-export function BolagTable({ rows, total, params, years, threshold, orter, users }: Props) {
+export function BolagTable({ rows, total, params, years, threshold, sniCodes, orter, users }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState(params.sok);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,8 +92,8 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
         <div>
           <h1>Bolag</h1>
           <p className="lede">
-            SNI 78.100 · nettoomsättning ≥ {fmtKr(threshold)} för minst ett av åren{" "}
-            {years[0]}/{years[1]}
+            Målbild: {sniCodes.map((c) => sniLabel(c)).join(" · ")} · nettoomsättning ≥{" "}
+            {fmtKr(threshold)} för minst ett av åren {years[0]}/{years[1]}
           </p>
         </div>
         <div className="actions">
@@ -159,6 +160,19 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
           </select>
           <select
             className="select"
+            aria-label="Filtrera på tillväxt"
+            value={params.vaxt !== undefined ? String(params.vaxt) : ""}
+            onChange={(e) =>
+              navigate({ vaxt: e.target.value === "" ? undefined : Number(e.target.value) })
+            }
+          >
+            <option value="">Tillväxt: alla</option>
+            <option value="0.1">Växer</option>
+            <option value="10">≥ 10 %</option>
+            <option value="25">≥ 25 %</option>
+          </select>
+          <select
+            className="select"
             aria-label="Filtrera på ansvarig"
             value={params.ansvarig ?? ""}
             onChange={(e) => navigate({ ansvarig: e.target.value || undefined })}
@@ -207,6 +221,12 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
                     <span className="sort-arrow">{sortArrow("oms2")}</span>
                   </Link>
                 </th>
+                <th className="num sortable" aria-sort={ariaSort("tillvaxt")}>
+                  <Link href={sortHref("tillvaxt")}>
+                    Tillväxt
+                    <span className="sort-arrow">{sortArrow("tillvaxt")}</span>
+                  </Link>
+                </th>
                 <th className="num sortable" aria-sort={ariaSort("anst")}>
                   <Link href={sortHref("anst")}>
                     Anställda
@@ -220,7 +240,7 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ height: "auto", whiteSpace: "normal" }}>
+                  <td colSpan={9} style={{ height: "auto", whiteSpace: "normal" }}>
                     {hasFilters ? (
                       <EmptyState
                         title="Inga bolag matchar filtren"
@@ -245,7 +265,9 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => <BolagRow key={row.lead_id} row={row} threshold={threshold} />)
+                rows.map((row) => (
+                  <BolagRow key={row.lead_id} row={row} threshold={threshold} sniCodes={sniCodes} />
+                ))
               )}
             </tbody>
           </table>
@@ -289,7 +311,15 @@ export function BolagTable({ rows, total, params, years, threshold, orter, users
   );
 }
 
-function BolagRow({ row, threshold }: { row: LeadListRow; threshold: number }) {
+function BolagRow({
+  row,
+  threshold,
+  sniCodes,
+}: {
+  row: LeadListRow;
+  threshold: number;
+  sniCodes: string[];
+}) {
   const router = useRouter();
   const under1 = row.oms1 === null || row.oms1 < threshold;
   const under2 = row.oms2 === null || row.oms2 < threshold;
@@ -297,6 +327,11 @@ function BolagRow({ row, threshold }: { row: LeadListRow; threshold: number }) {
   const mark2 = !under2 && under1;
   const underTitle = `Under tröskel ${fmtKr(threshold)}`;
   const markTitle = "Kvalificerande år (når tröskeln)";
+  const sniMismatch =
+    row.sni_kod !== null &&
+    sniCodes.length > 0 &&
+    !sniCodes.some((c) => c.replace(/\D/g, "") === row.sni_kod!.replace(/\D/g, ""));
+  const growth = row.oms_tillvaxt_pct === null ? null : Number(row.oms_tillvaxt_pct);
 
   function open() {
     router.push(`/bolag/${row.orgnr}`);
@@ -311,7 +346,25 @@ function BolagRow({ row, threshold }: { row: LeadListRow; threshold: number }) {
         if (e.key === "Enter") open();
       }}
     >
-      <td className="namn">{row.namn}</td>
+      <td className="namn">
+        {row.namn}
+        {row.avregistrerad && (
+          <span className="badge st-fel" style={{ marginLeft: 8 }} title="Avregistrerat hos Bolagsverket">
+            <span className="dot" />
+            Avreg.
+          </span>
+        )}
+        {!row.avregistrerad && sniMismatch && (
+          <span
+            className="badge st-forlorad"
+            style={{ marginLeft: 8 }}
+            title={`Utanför målbilden: bolagets SNI är ${row.sni_kod} enligt Bolagsverket`}
+          >
+            <span className="dot" />
+            SNI {row.sni_kod}
+          </span>
+        )}
+      </td>
       <td className="org mono">{row.orgnr}</td>
       <td>{row.ort ?? "–"}</td>
       <td className={`num${under1 ? " under" : ""}`} title={under1 ? underTitle : undefined}>
@@ -321,6 +374,17 @@ function BolagRow({ row, threshold }: { row: LeadListRow; threshold: number }) {
       <td className={`num${under2 ? " under" : ""}`} title={under2 ? underTitle : undefined}>
         {row.oms2 === null ? "–" : fmtKr(row.oms2)}
         {mark2 && <span className="qual-mark" title={markTitle} />}
+      </td>
+      <td
+        className="num"
+        style={growth !== null && growth > 0 ? { color: "var(--ok)", fontWeight: 600 } : undefined}
+        title={
+          row.anst1 !== null && row.anst2 !== null
+            ? `Anställda: ${row.anst1} → ${row.anst2}`
+            : undefined
+        }
+      >
+        {growth === null ? "–" : fmtPercent(growth, { sign: true })}
       </td>
       <td className="num">{row.antal_anstallda ?? "–"}</td>
       <td>

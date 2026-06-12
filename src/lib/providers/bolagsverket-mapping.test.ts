@@ -29,6 +29,10 @@ const organisation = {
     sni: [{ kod: "78100", klartext: "Arbetsförmedling och rekrytering" }],
   },
   verksamOrganisation: { kod: "JA" },
+  verksamhetsbeskrivning: { beskrivning: "Rekrytering och uthyrning av personal." },
+  organisationsdatum: { registreringsdatum: "2010-03-15" },
+  organisationsform: { kod: "AB", klartext: "Aktiebolag" },
+  reklamsparr: null,
 };
 
 describe("Bolagsverket-fältmappning", () => {
@@ -43,7 +47,22 @@ describe("Bolagsverket-fältmappning", () => {
       antalAnstallda: null, // finns inte i API:et – berikningen rör inte fältet
       hemsida: null,
       telefon: null,
+      verksamhetsbeskrivning: "Rekrytering och uthyrning av personal.",
+      registreringsdatum: "2010-03-15",
+      bolagsform: "Aktiebolag",
+      avregistreradDatum: null,
+      reklamsparr: false,
     });
+  });
+
+  it("mappar avregistrering och reklamspärr", () => {
+    const details = mapBolagsverketOrganisation({
+      ...organisation,
+      avregistreradOrganisation: { avregistreringsdatum: "2023-05-05T00:00:00.000+00:00" },
+      reklamsparr: { kod: "JA" },
+    });
+    expect(details.avregistreradDatum).toBe("2023-05-05");
+    expect(details.reklamsparr).toBe(true);
   });
 
   it("hanterar saknade fält utan att krascha", () => {
@@ -54,6 +73,8 @@ describe("Bolagsverket-fältmappning", () => {
     expect(details.namn).toBe("Okänt bolagsnamn");
     expect(details.ort).toBeNull();
     expect(details.sniKod).toBeNull();
+    expect(details.avregistreradDatum).toBeNull();
+    expect(details.reklamsparr).toBe(false);
   });
 
   it("kastar tydligt fel vid ogiltigt orgnr", () => {

@@ -80,6 +80,7 @@ export async function importBatch(
       revenue_sek: f.revenueSek,
       profit_sek: f.profitSek,
       employees: f.employees,
+      soliditet: f.soliditetPct ?? null,
     })),
   );
   if (financialRows.length > 0) {

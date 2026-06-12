@@ -26,14 +26,17 @@ const IXBRL = `<?xml version="1.0" encoding="UTF-8"?>
 <p>Medelantalet anställda:
   <ix:nonFraction name="se-gen-base:MedelantaletAnstallda" contextRef="period_nu" unitRef="antal" scale="0">19</ix:nonFraction>
 </p>
+<p>Soliditet:
+  <ix:nonFraction name="se-gen-base:Soliditet" contextRef="period_nu" unitRef="procent" scale="0">42,5</ix:nonFraction>
+</p>
 </body></html>`;
 
 describe("iXBRL-tolkning av årsredovisningar", () => {
-  it("läser nettoomsättning, resultat och anställda per räkenskapsår", () => {
+  it("läser nettoomsättning, resultat, anställda och soliditet per räkenskapsår", () => {
     const rows = parseIxbrlFinancials(IXBRL);
     expect(rows).toEqual([
-      { year: 2023, revenueSek: 3_240_000, profitSek: -120_500, employees: null },
-      { year: 2024, revenueSek: 8_110_000, profitSek: 562_000, employees: 19 },
+      { year: 2023, revenueSek: 3_240_000, profitSek: -120_500, employees: null, soliditetPct: null },
+      { year: 2024, revenueSek: 8_110_000, profitSek: 562_000, employees: 19, soliditetPct: 42.5 },
     ]);
   });
 

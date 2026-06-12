@@ -81,6 +81,11 @@ interface BvOrganisation {
   naringsgrenOrganisation?: { sni?: KodKlartext[] };
   verksamOrganisation?: { kod?: string };
   avregistreradOrganisation?: { avregistreringsdatum?: string | null };
+  verksamhetsbeskrivning?: { beskrivning?: string | null };
+  organisationsdatum?: { registreringsdatum?: string | null };
+  organisationsform?: KodKlartext;
+  /** null från Bolagsverket = ingen reklamspärr registrerad. */
+  reklamsparr?: { kod?: string } | null;
 }
 
 interface BvDokument {
@@ -102,6 +107,8 @@ export function mapBolagsverketOrganisation(org: BvOrganisation): CompanyDetails
   const namn = org.organisationsnamn?.organisationsnamnLista?.find((n) => n.namn)?.namn;
   const adress = org.postadressOrganisation?.postadress;
   const sni = (org.naringsgrenOrganisation?.sni ?? []).find((s) => s.kod);
+  // Datum kan komma som "2023-05-05T00:00:00.000+00:00" – behåll datumdelen.
+  const avregDatum = org.avregistreradOrganisation?.avregistreringsdatum?.slice(0, 10) || null;
   return {
     orgnr,
     namn: namn?.trim() || "Okänt bolagsnamn",
@@ -111,6 +118,13 @@ export function mapBolagsverketOrganisation(org: BvOrganisation): CompanyDetails
     antalAnstallda: null,
     hemsida: null,
     telefon: null,
+    // Bolagsverket är auktoritativ källa – fälten sätts explicit
+    // (null = "finns ej") och får skriva över tidigare värden.
+    verksamhetsbeskrivning: org.verksamhetsbeskrivning?.beskrivning?.trim() || null,
+    registreringsdatum: org.organisationsdatum?.registreringsdatum?.slice(0, 10) || null,
+    bolagsform: org.organisationsform?.klartext?.trim() || null,
+    avregistreradDatum: avregDatum,
+    reklamsparr: org.reklamsparr?.kod === "JA",
   };
 }
 

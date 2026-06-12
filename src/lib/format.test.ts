@@ -8,6 +8,7 @@ import {
   fmtKr,
   fmtMkr,
   fmtNumber,
+  fmtPercent,
   initials,
   normalizeOrgnr,
   parseSekInput,
@@ -24,6 +25,13 @@ describe("svenska format", () => {
     expect(fmtMkr(8_110_000)).toBe(`8,1${NBSP}mkr`);
     expect(fmtMkr(5_000_000)).toBe(`5,0${NBSP}mkr`);
     expect(fmtMkr(31_400_000)).toBe(`31,4${NBSP}mkr`);
+  });
+
+  it("procent med decimalkomma och tecken", () => {
+    expect(fmtPercent(24.34)).toBe(`24,3${NBSP}%`);
+    expect(fmtPercent(24.34, { sign: true })).toBe(`+24,3${NBSP}%`);
+    expect(fmtPercent(-8.06, { sign: true })).toBe(`−8,1${NBSP}%`);
+    expect(fmtPercent(0, { sign: true })).toBe(`0,0${NBSP}%`);
   });
 
   it("datum YYYY-MM-DD i svensk tid", () => {

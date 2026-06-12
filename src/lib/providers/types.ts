@@ -28,6 +28,17 @@ export interface CompanyDetails extends CompanySummary {
   antalAnstallda: number | null;
   hemsida: string | null;
   telefon: string | null;
+  /**
+   * Berikningsfält. `undefined` = källan känner inte till fältet (rör
+   * inte befintligt värde); `null` = källan säger att värdet saknas/
+   * inte gäller (skrivs). Bolagsverket sätter dessa explicit.
+   */
+  verksamhetsbeskrivning?: string | null;
+  registreringsdatum?: string | null;
+  bolagsform?: string | null;
+  /** Datum då bolaget avregistrerades hos Bolagsverket; null = aktivt. */
+  avregistreradDatum?: string | null;
+  reklamsparr?: boolean;
 }
 
 export interface YearFinancials {
@@ -37,6 +48,8 @@ export interface YearFinancials {
   /** Resultat i SEK (heltal). */
   profitSek: number | null;
   employees: number | null;
+  /** Soliditet i procent (t.ex. 42.5), från årsredovisningen. */
+  soliditetPct?: number | null;
 }
 
 export interface SearchCompaniesParams {

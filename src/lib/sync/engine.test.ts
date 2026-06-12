@@ -136,6 +136,51 @@ describe("synkmotorn", () => {
     expect(store.leads.has("556712-4830")).toBe(true);
   });
 
+  it("avregistrerade bolag markeras Förlorad och får aldrig nytt lead", async () => {
+    const avregistrerad: CompanyDataProvider = {
+      name: "bolagsverket",
+      label: "BV",
+      async searchCompanies() {
+        return {
+          companies: [{ orgnr: "556712-4830", namn: "Nedlagt AB", ort: null }],
+          page: 1,
+          totalPages: 1,
+          total: 1,
+        };
+      },
+      async getCompany(orgnr): Promise<CompanyDetails> {
+        return {
+          orgnr,
+          namn: "Nedlagt AB",
+          ort: "Visby",
+          sniKod: "78.100",
+          adress: null,
+          antalAnstallda: null,
+          hemsida: null,
+          telefon: null,
+          avregistreradDatum: "2024-02-01",
+        };
+      },
+      async getFinancials(): Promise<YearFinancials[]> {
+        return [{ year: 2023, revenueSek: 9_000_000, profitSek: null, employees: null }];
+      },
+    };
+
+    // Befintligt lead → flyttas till Förlorad.
+    const store = new InMemorySyncStore();
+    store.leads.add("556712-4830");
+    await runSync(avregistrerad, store, { ...settings, revenueYears: [2023] });
+    expect(store.lostLeads.has("556712-4830")).toBe(true);
+
+    // Utan befintligt lead → inget lead skapas trots kvalificerande omsättning.
+    const freshStore = new InMemorySyncStore();
+    const result = await runSync(avregistrerad, freshStore, { ...settings, revenueYears: [2023] });
+    expect(result.leadsCreated).toBe(0);
+    expect(freshStore.leads.size).toBe(0);
+    // Bolaget och siffrorna sparas ändå.
+    expect(freshStore.companies.has("556712-4830")).toBe(true);
+  });
+
   it("dedupar orgnr inom samma körning", async () => {
     const repeating: CompanyDataProvider = {
       name: "repeat",

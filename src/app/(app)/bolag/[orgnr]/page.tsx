@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
 import { sniLabel } from "@/lib/constants";
-import { fmtDate, fmtDateTime, fmtKr } from "@/lib/format";
+import { fmtDate, fmtDateTime, fmtKr, fmtPercent } from "@/lib/format";
 import { providerLabel } from "@/lib/providers";
 import { displayYears, getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
-import { IconBack } from "@/components/icons";
+import { IconBack, IconError, IconInfo } from "@/components/icons";
 import { DetailActions } from "./detail-actions";
 import { HandoffPanel } from "./handoff-panel";
 import { NoteForm } from "./note-form";
@@ -46,14 +46,14 @@ export default async function BolagDetaljPage({
     supabase
       .from("companies")
       .select(
-        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, kalla, last_synced_at",
+        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
     getSyncFilter(supabase),
     supabase
       .from("company_financials")
-      .select("year, revenue_sek, profit_sek, employees")
+      .select("year, revenue_sek, profit_sek, employees, soliditet")
       .eq("orgnr", orgnr)
       .order("year"),
     supabase
@@ -85,6 +85,30 @@ export default async function BolagDetaljPage({
   const oms1 = omsByYear.get(years[0]) ?? null;
   const oms2 = omsByYear.get(years[1]) ?? null;
 
+  // Hälsotal ur senaste året med kompletta siffror.
+  const latestWithProfit = [...financials]
+    .reverse()
+    .find((f) => f.revenue_sek !== null && f.revenue_sek > 0 && f.profit_sek !== null);
+  const margin = latestWithProfit
+    ? (Number(latestWithProfit.profit_sek) / Number(latestWithProfit.revenue_sek)) * 100
+    : null;
+  const latestSolidity = [...financials].reverse().find((f) => f.soliditet !== null);
+  const tillvaxt =
+    oms1 !== null && oms1 > 0 && oms2 !== null
+      ? ((Number(oms2) - Number(oms1)) / Number(oms1)) * 100
+      : null;
+  const companyAge = company.registreringsdatum
+    ? Math.floor(
+        (Date.now() - new Date(company.registreringsdatum).getTime()) / (365.25 * 86_400_000),
+      )
+    : null;
+  const sniMismatch =
+    company.sni_kod !== null &&
+    settings.sniCodes.length > 0 &&
+    !settings.sniCodes.some(
+      (c) => c.replace(/\D/g, "") === (company.sni_kod ?? "").replace(/\D/g, ""),
+    );
+
   return (
     <section className="view">
       <Link className="backlink" href="/bolag">
@@ -113,6 +137,25 @@ export default async function BolagDetaljPage({
           </span>
         )}
       </div>
+
+      {company.avregistrerad_datum && (
+        <div className="banner error" style={{ marginBottom: 14 }}>
+          <IconError />
+          <span>
+            <strong>Avregistrerat bolag:</strong> avregistrerat hos Bolagsverket{" "}
+            {fmtDate(company.avregistrerad_datum)}. Leadet markeras automatiskt som Förlorad.
+          </span>
+        </div>
+      )}
+      {!company.avregistrerad_datum && sniMismatch && (
+        <div className="banner info" style={{ marginBottom: 14 }}>
+          <IconInfo />
+          <span>
+            <strong>Utanför målbilden:</strong> Bolagsverket anger {sniLabel(company.sni_kod)} som
+            bransch – er målbild är {settings.sniCodes.map((c) => sniLabel(c)).join(", ")}.
+          </span>
+        </div>
+      )}
 
       {lead?.status === "kund" && (
         <HandoffPanel orgnr={orgnr} customerId={customer?.id ?? null} controllers={users} />
@@ -174,7 +217,71 @@ export default async function BolagDetaljPage({
                   <div className="k">Telefon</div>
                   <div className="v mono">{company.telefon ?? "–"}</div>
                 </div>
+                <div className="fact">
+                  <div className="k">Registrerat</div>
+                  <div className="v">
+                    {company.registreringsdatum ? (
+                      <>
+                        <span className="mono">{fmtDate(company.registreringsdatum)}</span>
+                        {companyAge !== null && ` (${companyAge} år)`}
+                      </>
+                    ) : (
+                      "–"
+                    )}
+                  </div>
+                </div>
+                <div className="fact">
+                  <div className="k">Bolagsform</div>
+                  <div className="v">
+                    {company.bolagsform ?? "–"}
+                    {company.reklamsparr && (
+                      <span
+                        className="badge st-kontaktad"
+                        style={{ marginLeft: 8 }}
+                        title="Bolaget har reklamspärr registrerad hos Bolagsverket – undvik oadresserade utskick"
+                      >
+                        <span className="dot" />
+                        Reklamspärr
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="fact">
+                  <div className="k">Tillväxt {years[0]}–{years[1]}</div>
+                  <div
+                    className="v mono"
+                    style={tillvaxt !== null && tillvaxt > 0 ? { color: "var(--ok)" } : undefined}
+                  >
+                    {tillvaxt === null ? "–" : fmtPercent(tillvaxt, { sign: true })}
+                  </div>
+                </div>
+                <div className="fact">
+                  <div className="k">
+                    Vinstmarginal{latestWithProfit ? ` ${latestWithProfit.year}` : ""}
+                  </div>
+                  <div className="v mono">
+                    {margin === null ? "–" : fmtPercent(margin)}
+                  </div>
+                </div>
+                <div className="fact">
+                  <div className="k">
+                    Soliditet{latestSolidity ? ` ${latestSolidity.year}` : ""}
+                  </div>
+                  <div className="v mono">
+                    {latestSolidity ? fmtPercent(Number(latestSolidity.soliditet)) : "–"}
+                  </div>
+                </div>
               </div>
+              {company.verksamhetsbeskrivning && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="fact">
+                    <div className="k">Verksamhetsbeskrivning (Bolagsverket)</div>
+                    <div className="v" style={{ whiteSpace: "pre-wrap" }}>
+                      {company.verksamhetsbeskrivning}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
