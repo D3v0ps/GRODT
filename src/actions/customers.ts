@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { requireUser } from "@/lib/auth";
 import { KUND_STATUS_KEYS, kundStatusLabel } from "@/lib/constants";
 import { fmtKr, normalizeOrgnr } from "@/lib/format";
+import { notifyUser } from "@/lib/notify";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ActionResult } from "./types";
@@ -142,6 +143,13 @@ export async function handoffCustomerAction(
       action: "kund_overlamnad",
       payload: { orgnr: lead.orgnr, namn, controller: controllerNamn ?? "" },
     });
+    if (controllerId && controllerId !== session.userId) {
+      await notifyUser(
+        controllerId,
+        `${session.namn} lämnade över ${namn} till dig`,
+        `/kunder/${customer.id}`,
+      );
+    }
     revalidateCustomerViews(lead.orgnr);
     return {
       ok: true,
@@ -350,6 +358,13 @@ export async function assignControllerAction(
       action: "kund_controller",
       payload: { orgnr: customer.orgnr, namn: customer.namn, controller: controllerNamn ?? "" },
     });
+    if (controllerId && controllerId !== session.userId) {
+      await notifyUser(
+        controllerId,
+        `${session.namn} gav dig kunden ${customer.namn}`,
+        `/kunder/${customer.id}`,
+      );
+    }
     revalidateCustomerViews(customer.orgnr);
     return {
       ok: true,

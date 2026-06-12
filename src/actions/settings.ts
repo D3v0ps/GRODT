@@ -24,6 +24,63 @@ const settingsSchema = z.object({
 
 export type SettingsInput = z.infer<typeof settingsSchema>;
 
+const webhookSchema = z.object({
+  url: z.union([z.literal(""), z.url("Ogiltig webhook-URL.").max(500)]),
+  enabled: z.boolean(),
+});
+
+/**
+ * Teamets chatt-webhook (Slack/Teams/Discord) för lagviktiga händelser.
+ * Sparas i app_settings – RLS släpper bara igenom admin för skrivning.
+ */
+export async function saveNotifyWebhookAction(
+  input: z.infer<typeof webhookSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireAdmin();
+    const parsed = webhookSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: parsed.error.issues[0]?.message ?? "Ogiltiga uppgifter." };
+    }
+    const { url, enabled } = parsed.data;
+    if (enabled && !url) {
+      return { ok: false, message: "Ange webhook-URL:en innan du slår på notiserna." };
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from("app_settings").upsert({
+      key: "notify_webhook",
+      value: { url, enabled: enabled && url !== "" },
+      updated_at: new Date().toISOString(),
+    });
+    if (error) return { ok: false, message: `Kunde inte spara: ${error.message}` };
+
+    // Logga utan hela URL:en – webhook-adresser är hemligheter i sig.
+    let host = "";
+    try {
+      host = url ? new URL(url).hostname : "";
+    } catch {
+      host = "";
+    }
+    await logActivity({
+      actorId: session.userId,
+      entityType: "installningar",
+      entityId: "notify_webhook",
+      action: "installningar_andrade",
+      payload: {
+        beskrivning: `Chattnotiser: ${enabled && url ? `på (${host})` : "av"}`,
+      },
+    });
+    revalidatePath("/installningar");
+    return {
+      ok: true,
+      message: enabled && url ? "Chattnotiser aktiverade" : "Chattnotiser avstängda",
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
 /**
  * Sparar filterparametrarna. Skrivs med användarens klient så att RLS
  * (endast admin får skriva app_settings) är den hårda gränsen.

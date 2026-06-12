@@ -7,7 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { LossReasonDialog } from "@/components/loss-reason-dialog";
 import { useToast } from "@/components/toast";
 import { LEAD_STATUSES, statusLabel, type LeadStatus } from "@/lib/constants";
-import { fmtDate, fmtMkr, todayStockholm } from "@/lib/format";
+import { fmtDate, fmtKr, fmtMkr, todayStockholm } from "@/lib/format";
 
 export interface KanbanCard {
   leadId: string;
@@ -20,6 +20,8 @@ export interface KanbanCard {
   maxOms: number | null;
   dagar: number;
   followUpAt: string | null;
+  /** Förväntat affärsvärde i kr (sätts på bolagskortet). */
+  dealValue: number | null;
 }
 
 /**
@@ -152,9 +154,21 @@ export function Kanban({ cards: initialCards }: { cards: KanbanCard[] }) {
                   <div className="k-namn">{card.namn}</div>
                   <div className="k-meta">
                     <span>{card.ort ?? "–"}</span>
-                    <span className="k-oms">
-                      {card.maxOms === null ? "–" : fmtMkr(card.maxOms)}
-                    </span>
+                    {card.dealValue !== null ? (
+                      <span
+                        className="k-oms"
+                        style={{ color: "var(--accent-deep)", fontWeight: 600 }}
+                        title={`Förväntat affärsvärde ${fmtKr(card.dealValue)}`}
+                      >
+                        {card.dealValue >= 950_000
+                          ? fmtMkr(card.dealValue)
+                          : fmtKr(card.dealValue)}
+                      </span>
+                    ) : (
+                      <span className="k-oms">
+                        {card.maxOms === null ? "–" : fmtMkr(card.maxOms)}
+                      </span>
+                    )}
                   </div>
                   <div className="k-foot">
                     {card.ownerId && card.ownerNamn ? (

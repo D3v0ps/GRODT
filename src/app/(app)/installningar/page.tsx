@@ -13,6 +13,7 @@ import { IconInfo } from "@/components/icons";
 import { AccountCard } from "./account-card";
 import { BolagsverketTest } from "./bolagsverket-test";
 import { SettingsForm } from "./settings-form";
+import { WebhookForm } from "./webhook-form";
 
 export const metadata = { title: "Inställningar – GRODT" };
 
@@ -24,18 +25,22 @@ export default async function InstallningarPage() {
     getAutoSyncEnabled(supabase),
   ]);
 
-  const [{ data: lastOkRun }, { data: ownProfile }] = await Promise.all([
-    supabase
-      .from("import_runs")
-      .select("finished_at, source")
-      .eq("status", "ok")
-      .order("finished_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    session
-      ? supabase.from("profiles").select("avatar_url").eq("id", session.userId).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const [{ data: lastOkRun }, { data: ownProfile }, { data: webhookRow }] =
+    await Promise.all([
+      supabase
+        .from("import_runs")
+        .select("finished_at, source")
+        .eq("status", "ok")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      session
+        ? supabase.from("profiles").select("avatar_url").eq("id", session.userId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from("app_settings").select("value").eq("key", "notify_webhook").maybeSingle(),
+    ]);
+
+  const webhook = (webhookRow?.value ?? {}) as { url?: string; enabled?: boolean };
 
   // Privat bucket: byt lagringssökvägen mot en signerad URL för förhandsvisningen.
   let ownAvatarUrl: string | null = null;
@@ -68,6 +73,12 @@ export default async function InstallningarPage() {
         lastOkRun={lastOkRun}
         showBolagsverketTest={showBolagsverketTest}
       />
+      {session?.roll === "admin" && (
+        <WebhookForm
+          initialUrl={typeof webhook.url === "string" ? webhook.url : ""}
+          initialEnabled={webhook.enabled === true}
+        />
+      )}
       {session && (
         <div style={{ marginTop: 14 }}>
           <AccountCard

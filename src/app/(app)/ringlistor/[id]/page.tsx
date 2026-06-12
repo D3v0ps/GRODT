@@ -36,7 +36,7 @@ export default async function RinglistaPage({
     supabase
       .from("call_list_items")
       .select(
-        "lead_id, position, called_at, ringd_av:profiles!call_list_items_called_by_fkey(namn), leads(id, orgnr, status, owner:profiles!leads_owner_id_fkey(namn), companies(namn, ort, telefon, telefon_kalla))",
+        "lead_id, position, called_at, ringd_av:profiles!call_list_items_called_by_fkey(namn), leads(id, orgnr, status, owner:profiles!leads_owner_id_fkey(namn), companies(namn, ort, telefon, telefon_kalla, company_contacts(namn, titel, telefon, created_at)))",
       )
       .eq("list_id", id)
       .order("position", { ascending: true }),
@@ -45,6 +45,19 @@ export default async function RinglistaPage({
   const list = listRes.data;
   if (!list) notFound();
 
+  interface ContactRef {
+    namn: string;
+    titel: string | null;
+    telefon: string | null;
+    created_at: string;
+  }
+  interface CompanyRef {
+    namn: string;
+    ort: string | null;
+    telefon: string | null;
+    telefon_kalla: string | null;
+    company_contacts: ContactRef[] | null;
+  }
   interface ItemRow {
     lead_id: string;
     called_at: string | null;
@@ -53,10 +66,7 @@ export default async function RinglistaPage({
       orgnr: string;
       status: string;
       owner: ProfileRef | ProfileRef[] | null;
-      companies:
-        | { namn: string; ort: string | null; telefon: string | null; telefon_kalla: string | null }
-        | { namn: string; ort: string | null; telefon: string | null; telefon_kalla: string | null }[]
-        | null;
+      companies: CompanyRef | CompanyRef[] | null;
     } | null;
   }
 
@@ -65,14 +75,20 @@ export default async function RinglistaPage({
       const lead = Array.isArray(row.leads) ? row.leads[0] : row.leads;
       if (!lead) return [];
       const company = Array.isArray(lead.companies) ? lead.companies[0] : lead.companies;
+      // Äldsta kontaktpersonen med direktnummer går före växelnumret.
+      const kontakt = [...(company?.company_contacts ?? [])]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .find((c) => c.telefon);
       return [
         {
           leadId: row.lead_id,
           orgnr: lead.orgnr,
           namn: company?.namn ?? lead.orgnr,
           ort: company?.ort ?? null,
-          telefon: company?.telefon ?? null,
-          telefonGoogle: company?.telefon_kalla === "google",
+          telefon: kontakt?.telefon ?? company?.telefon ?? null,
+          telefonGoogle: !kontakt && company?.telefon_kalla === "google",
+          kontaktNamn: kontakt?.namn ?? null,
+          kontaktTitel: kontakt?.titel ?? null,
           status: lead.status,
           ownerNamn: refNamn(lead.owner),
           ringd: row.called_at !== null,

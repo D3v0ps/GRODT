@@ -40,6 +40,7 @@ export default async function PipelinePage() {
       maxOms: oms.length === 0 ? null : Math.max(...oms),
       dagar: daysSince(row.updated_at),
       followUpAt: row.follow_up_at,
+      dealValue: row.deal_value_sek === null ? null : Number(row.deal_value_sek),
     };
   });
 

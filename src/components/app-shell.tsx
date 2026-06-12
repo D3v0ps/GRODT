@@ -22,6 +22,7 @@ import {
   IconSync,
   IconUsers,
 } from "./icons";
+import { NotifBell, type NotifItem } from "./notif-bell";
 import { RadarGlyph } from "./radar-glyph";
 import { TourOverlay } from "./tour";
 
@@ -50,11 +51,15 @@ const SYSTEM_NAV = [
 export function AppShell({
   profile,
   mustChangePassword = false,
+  notifications = [],
+  unreadCount = 0,
   children,
 }: {
   profile: ShellProfile;
   /** Sant efter admin-återställning – visa uppmaning tills lösenordet bytts. */
   mustChangePassword?: boolean;
+  notifications?: NotifItem[];
+  unreadCount?: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -144,6 +149,7 @@ export function AppShell({
               <span className="role">{rollLabel(profile.roll)}</span>
             </span>
           </Link>
+          <NotifBell items={notifications} unread={unreadCount} />
           <form action={signOutAction}>
             <button className="logout" title="Logga ut" aria-label="Logga ut" type="submit">
               <IconLogout />

@@ -107,6 +107,13 @@ export default async function HjalpPage() {
             förväxlar dem med ett verifierat direktnummer.
           </p>
           <p>
+            <strong>Kontaktpersoner:</strong> lägg in vem ni pratar med – namn, titel,
+            direktnummer, e-post och en anteckning. Kontaktens direktnummer går före
+            växelnumret i ringlistorna, och varje ändring loggas i tidslinjen.{" "}
+            <strong>Affärsvärde:</strong> sätt det förväntade värdet av affären, så
+            syns det på pipelinekortet och bygger prognosen under Statistik.
+          </p>
+          <p>
             <strong>Uppföljning:</strong> sätt &quot;kontakta om 1 vecka/1 månad/3
             månader&quot; (eller eget datum), skriv en anteckning och välj vem som ska
             följa upp. Påminnelsen ligger på dashboarden och kanban-kortet tills den
@@ -182,6 +189,11 @@ export default async function HjalpPage() {
             vem som skrev vad. Topplistan summerar intjänat per säljare – get rich or
             die trying.
           </p>
+          <p>
+            <strong>Export:</strong> knapparna Kunder CSV och Intäkter CSV laddar ner
+            kundlistan (med aktiva filter) respektive alla intäktsposter – klara för
+            bokföringen eller månadsrapporten.
+          </p>
         </div>
       </div>
 
@@ -196,8 +208,16 @@ export default async function HjalpPage() {
             intjänade kronor – per person och period (vecka, månad, år eller hela
             tiden, alltid i svensk kalendertid). Poängen byggs av aktivitetsloggen:
             den som gör statusbytet får poängen, och intjänat krediteras säljaren som
-            vann kunden. Tabellen Pipeline just nu visar vem som har hur många aktiva
-            leads på bordet.
+            vann kunden.
+          </p>
+          <p>
+            <strong>Säljanalysen</strong> visar konverteringstratten
+            (Kontaktade → Dialoger → Möten → Vunna med procent mellan stegen och win
+            rate), topplistan över förlustorsaker och snitt-tiden per pipelinesteg.{" "}
+            <strong>Pipelineprognosen</strong> summerar affärsvärdena på aktiva leads –
+            totalt och viktat med sannolikhet per steg (Ny 10 %, Kontaktad 25 %,
+            Dialog 50 %, Möte 75 %). Tabellen Pipeline just nu visar vem som har hur
+            många aktiva leads och hur mycket värde på bordet.
           </p>
           <p>
             Klicka på ett namn (eller sök på en kollega med Ctrl+K) för personens{" "}
@@ -251,6 +271,13 @@ export default async function HjalpPage() {
             intäkter. <strong>Admin</strong> hanterar användare, inställningar och ser
             hela audit-loggen. Nya konton får ett engångslösenord som ska bytas vid
             första inloggningen.
+          </p>
+          <p>
+            <strong>Notiser:</strong> klockan längst ner i menyn visar dina personliga
+            händelser – när någon tilldelar dig ett lead, sätter en uppföljning åt dig
+            eller lämnar över en kund. Admin kan dessutom koppla en{" "}
+            <strong>chatt-webhook</strong> (Slack/Teams/Discord) under Inställningar,
+            så postas vunna affärer, överlämningar och utdelningar i er kanal.
           </p>
         </div>
       </div>

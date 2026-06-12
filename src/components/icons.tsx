@@ -165,6 +165,20 @@ export function IconChart({ className = "icon" }: IconProps) {
   );
 }
 
+export function IconBell({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 2a4 4 0 0 0-4 4v2.4l-1.2 2.3a.6.6 0 0 0 .53.9h9.34a.6.6 0 0 0 .53-.9L12 8.4V6a4 4 0 0 0-4-4Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M6.6 13.6a1.5 1.5 0 0 0 2.8 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconHelp({ className = "icon" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">

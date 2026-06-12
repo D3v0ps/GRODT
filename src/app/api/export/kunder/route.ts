@@ -1,16 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity";
 import { getSessionProfile } from "@/lib/auth";
-import { statusLabel } from "@/lib/constants";
+import { kundStatusLabel } from "@/lib/constants";
 import { toCsv } from "@/lib/csv-export";
+import { parseKundParams, type CustomerListRow } from "@/lib/customer-params";
 import { fmtDate } from "@/lib/format";
 import { checkRateLimit } from "@/lib/rate-limit";
-import {
-  parseListParams,
-  rpcArgs,
-  type LeadListRow,
-} from "@/lib/list-params";
-import { getSyncFilter, tableYearWindow } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +13,9 @@ export const dynamic = "force-dynamic";
 const EXPORT_MAX_ROWS = 100_000;
 
 /**
- * CSV-export av bolagslistan. Tar emot samma frågeparametrar som
- * listvyn och respekterar därmed alltid de aktiva filtren. RLS gäller
- * (användarens klient), och exporten skrivs till audit-loggen.
+ * CSV-export av kundlistan – samma frågeparametrar som kundvyn, så att
+ * exporten respekterar de aktiva filtren. RLS gäller (användarens
+ * klient) och exporten audit-loggas, precis som bolagsexporten.
  */
 export async function GET(request: NextRequest) {
   const session = await getSessionProfile();
@@ -28,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Inte inloggad" }, { status: 401 });
   }
 
-  // Exporten kan omfatta hela databasen – strypt per användare.
+  // Delar exportbudgeten med övriga exporter (5 per minut och användare).
   const limit = checkRateLimit(`export:${session.userId}`, 5, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
@@ -37,58 +32,44 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const params = parseListParams(
+  const params = parseKundParams(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
   );
   const supabase = await createSupabaseServerClient();
-  const settings = await getSyncFilter(supabase);
-  const years = tableYearWindow(settings);
-
-  const { data, error } = await supabase.rpc(
-    "list_leads",
-    rpcArgs(params, years, EXPORT_MAX_ROWS, 0),
-  );
+  const { data, error } = await supabase.rpc("list_customers", {
+    p_search: params.sok || null,
+    p_status: params.status ?? null,
+    p_controller: params.controller ?? null,
+    p_sort: params.sort,
+    p_dir: params.dir,
+    p_limit: EXPORT_MAX_ROWS,
+    p_offset: 0,
+  });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  const rows = (data ?? []) as LeadListRow[];
+  const rows = (data ?? []) as CustomerListRow[];
 
   const csv = toCsv([
     [
       "Bolagsnamn",
       "Orgnr",
       "Ort",
-      "SNI",
-      `Omsättning ${years[0]} (kr)`,
-      `Omsättning ${years[1]} (kr)`,
-      `Omsättning ${years[2]} (kr)`,
-      `Omsättning ${years[3]} (kr)`,
-      "Tillväxt (%)",
-      `Anställda ${years[2]}`,
-      `Anställda ${years[3]}`,
-      "Anställda",
       "Status",
-      "Ansvarig",
-      "Affärsvärde (kr)",
-      "Avregistrerad",
+      "Säljare",
+      "Controller",
+      "Överlämnad",
+      "Intjänat totalt (kr)",
     ],
     ...rows.map((row) => [
       row.namn,
       row.orgnr,
       row.ort,
-      row.sni_kod,
-      row.oms1,
-      row.oms2,
-      row.oms3,
-      row.oms4,
-      row.oms_tillvaxt_pct === null ? "" : String(row.oms_tillvaxt_pct).replace(".", ","),
-      row.anst1,
-      row.anst2,
-      row.antal_anstallda,
-      statusLabel(row.status),
-      row.owner_namn ?? "",
-      row.deal_value_sek,
-      row.avregistrerad ? "Ja" : "",
+      kundStatusLabel(row.status),
+      row.saljare_namn ?? "",
+      row.controller_namn ?? "",
+      fmtDate(row.overlamnad_at),
+      Number(row.intjanat),
     ]),
   ]);
 
@@ -98,12 +79,13 @@ export async function GET(request: NextRequest) {
     entityId: "csv-export",
     action: "export",
     payload: {
+      typ: "kunder",
       rader: rows.length,
       filter: Object.fromEntries(request.nextUrl.searchParams.entries()),
     },
   });
 
-  const filename = `grodt-bolag-${fmtDate(new Date())}.csv`;
+  const filename = `grodt-kunder-${fmtDate(new Date())}.csv`;
   return new NextResponse(csv, {
     headers: {
       "content-type": "text/csv; charset=utf-8",

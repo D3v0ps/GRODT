@@ -94,6 +94,8 @@ export interface LeadListRow {
   avregistrerad: boolean;
   reklamsparr: boolean;
   follow_up_at: string | null;
+  /** Förväntat affärsvärde i kr (sätts på bolagskortet). */
+  deal_value_sek: number | null;
   updated_at: string;
   total_count: number;
 }

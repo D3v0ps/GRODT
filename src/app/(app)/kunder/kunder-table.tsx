@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createManualCustomerAction } from "@/actions/customers";
 import { AvatarWithName } from "@/components/avatar";
 import { EmptyState } from "@/components/empty-state";
-import { IconSearch } from "@/components/icons";
+import { IconDownload, IconSearch } from "@/components/icons";
 import { KundStatusBadge } from "@/components/kund-status-badge";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
@@ -117,6 +117,17 @@ export function KunderTable({ rows, total, params, controllers }: Props) {
           </p>
         </div>
         <div className="actions">
+          <a
+            className="btn"
+            href={`/api/export/kunder${kundParamsToQuery({ ...params, sida: 1 }).size > 0 ? `?${kundParamsToQuery({ ...params, sida: 1 }).toString()}` : ""}`}
+          >
+            <IconDownload />
+            Kunder CSV
+          </a>
+          <a className="btn" href="/api/export/intakter">
+            <IconDownload />
+            Intäkter CSV
+          </a>
           <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
             Lägg till kund
           </button>

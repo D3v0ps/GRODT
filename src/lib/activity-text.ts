@@ -33,6 +33,12 @@ export function actionLabel(action: string): string {
       return "Uppföljning";
     case "anteckning":
       return "Anteckning";
+    case "kontakt_tillagd":
+    case "kontakt_andrad":
+    case "kontakt_borttagen":
+      return "Kontaktperson";
+    case "affarsvarde_satt":
+      return "Affärsvärde";
     case "ringlista_skapad":
     case "ringlista_ringd":
     case "ringlista_borttagen":
@@ -97,6 +103,18 @@ export function activityDetail(action: string, payload: Payload): string {
       return `${namn}: uppföljning avklarad`;
     case "anteckning":
       return `${namn}: ny anteckning`;
+    case "kontakt_tillagd":
+      return `${namn}: kontaktperson ${str(payload, "kontakt")} tillagd`;
+    case "kontakt_andrad":
+      return `${namn}: kontaktperson ${str(payload, "kontakt")} uppdaterad`;
+    case "kontakt_borttagen":
+      return `${namn}: kontaktperson ${str(payload, "kontakt")} borttagen`;
+    case "affarsvarde_satt": {
+      const belopp = num(payload, "belopp");
+      return belopp > 0
+        ? `${namn}: affärsvärde ${fmtKr(belopp)}`
+        : `${namn}: affärsvärde borttaget`;
+    }
     case "ringlista_skapad":
       return `Skapade ringlistan "${str(payload, "lista")}" med ${num(payload, "antal")} bolag`;
     case "ringlista_ringd":
@@ -116,8 +134,10 @@ export function activityDetail(action: string, payload: Payload): string {
       const base = `${str(payload, "fil")} – ${num(payload, "nya")} nya, ${num(payload, "uppdaterade")} uppdaterade, ${num(payload, "leads")} leads`;
       return str(payload, "avbruten") === "ja" ? `${base} (avbruten)` : base;
     }
-    case "export":
-      return `CSV-export, ${num(payload, "rader")} rader`;
+    case "export": {
+      const typ = str(payload, "typ");
+      return `CSV-export${typ ? ` (${typ})` : ""}, ${num(payload, "rader")} rader`;
+    }
     case "anvandare_skapad":
       return `Skapade konto för ${namn} (${rollLabel(str(payload, "roll"))})`;
     case "anvandare_inaktiverad":
@@ -186,6 +206,18 @@ export function activityFeedText(action: string, payload: Payload): string {
       return `bockade av uppföljningen på ${namn}`;
     case "anteckning":
       return `antecknade på ${namn}`;
+    case "kontakt_tillagd":
+      return `lade till kontaktpersonen ${str(payload, "kontakt")} på ${namn}`;
+    case "kontakt_andrad":
+      return `uppdaterade kontaktpersonen ${str(payload, "kontakt")} på ${namn}`;
+    case "kontakt_borttagen":
+      return `tog bort kontaktpersonen ${str(payload, "kontakt")} på ${namn}`;
+    case "affarsvarde_satt": {
+      const belopp = num(payload, "belopp");
+      return belopp > 0
+        ? `satte affärsvärdet ${fmtKr(belopp)} på ${namn}`
+        : `tog bort affärsvärdet på ${namn}`;
+    }
     case "ringlista_skapad":
       return `skapade ringlistan "${str(payload, "lista")}" (${num(payload, "antal")} bolag)`;
     case "ringlista_ringd":
@@ -275,6 +307,18 @@ export function activityTimelineText(action: string, payload: Payload): string {
       return "Uppföljning avklarad";
     case "anteckning":
       return "Anteckning tillagd";
+    case "kontakt_tillagd":
+      return `Kontaktperson tillagd: ${str(payload, "kontakt")}`;
+    case "kontakt_andrad":
+      return `Kontaktperson uppdaterad: ${str(payload, "kontakt")}`;
+    case "kontakt_borttagen":
+      return `Kontaktperson borttagen: ${str(payload, "kontakt")}`;
+    case "affarsvarde_satt": {
+      const belopp = num(payload, "belopp");
+      return belopp > 0
+        ? `Affärsvärde satt till ${fmtKr(belopp)}`
+        : "Affärsvärde borttaget";
+    }
     case "ringlista_ringd":
       return `Avbockad i ringlistan "${str(payload, "lista")}"`;
     case "synk":

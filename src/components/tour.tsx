@@ -55,7 +55,7 @@ const STEPS: TourStep[] = [
     path: "/statistik",
     titel: "Statistik – säljarnas facit",
     text:
-      "Kontaktade, möten, vunna affärer och intjänade kronor per person – per vecka, månad, år eller hela tiden. Poängen byggs av aktivitetsloggen: den som gör statusbytet får poängen. Klicka på ett namn för personens profil med historik.",
+      "Kontaktade, möten, vunna affärer och intjänade kronor per person – per vecka, månad, år eller hela tiden. Konverteringstratten, förlustorsakerna och pipelineprognosen (affärsvärdena viktade per steg) visar var affärerna fastnar. Klicka på ett namn för personens profil med historik.",
   },
   {
     path: "/synk",

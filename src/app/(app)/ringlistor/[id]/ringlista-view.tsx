@@ -21,6 +21,9 @@ export interface RinglistaItem {
   ort: string | null;
   telefon: string | null;
   telefonGoogle: boolean;
+  /** Kontaktperson med direktnummer, när en finns – går före växeln. */
+  kontaktNamn: string | null;
+  kontaktTitel: string | null;
   status: string;
   ownerNamn: string | null;
   ringd: boolean;
@@ -190,6 +193,19 @@ export function RinglistaView({
                           </a>
                         ) : (
                           "–"
+                        )}
+                        {item.kontaktNamn && (
+                          <span
+                            className="faint small"
+                            style={{ marginLeft: 6, fontFamily: "var(--font-ui)" }}
+                            title={
+                              item.kontaktTitel
+                                ? `${item.kontaktNamn} (${item.kontaktTitel})`
+                                : item.kontaktNamn
+                            }
+                          >
+                            {item.kontaktNamn.split(" ")[0]}
+                          </span>
                         )}
                         {item.telefon && item.telefonGoogle && (
                           <span

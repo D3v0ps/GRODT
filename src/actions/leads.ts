@@ -5,7 +5,8 @@ import { z } from "zod";
 import { logActivity } from "@/lib/activity";
 import { requireUser } from "@/lib/auth";
 import { LEAD_STATUS_KEYS, statusLabel } from "@/lib/constants";
-import { normalizeOrgnr } from "@/lib/format";
+import { fmtKr, normalizeOrgnr } from "@/lib/format";
+import { notifyUser } from "@/lib/notify";
 import { createBolagsverketProvider } from "@/lib/providers";
 import type { CompanyDetails, YearFinancials } from "@/lib/providers/types";
 import { getSyncFilter } from "@/lib/settings";
@@ -151,6 +152,13 @@ export async function assignLeadAction(
       action: "tilldelad",
       payload: { orgnr: lead.orgnr, namn: lead.namn, ansvarig: ownerNamn ?? "" },
     });
+    if (ownerId && ownerId !== session.userId) {
+      await notifyUser(
+        ownerId,
+        `${session.namn} tilldelade dig ${lead.namn}`,
+        `/bolag/${lead.orgnr}`,
+      );
+    }
     revalidateLeadViews(lead.orgnr);
     return {
       ok: true,
@@ -332,6 +340,13 @@ export async function setFollowUpAction(
         ansvarig: ansvarigNamn,
       },
     });
+    if (followUpUser !== session.userId) {
+      await notifyUser(
+        followUpUser,
+        `${session.namn} satte uppföljning ${datum} på ${lead.namn} åt dig`,
+        `/bolag/${lead.orgnr}`,
+      );
+    }
     revalidateLeadViews(lead.orgnr);
     return { ok: true, message: `Uppföljning satt till ${datum}` };
   } catch (e) {
@@ -444,6 +459,13 @@ export async function bulkAssignAction(
       action: "massutdelning",
       payload: { antal: leadIds.length, ansvarig: ownerNamn ?? "" },
     });
+    if (ownerId && ownerId !== session.userId) {
+      await notifyUser(
+        ownerId,
+        `${session.namn} delade ut ${leadIds.length} leads till dig`,
+        `/bolag?ansvarig=${ownerId}`,
+      );
+    }
 
     revalidatePath("/bolag");
     revalidatePath("/pipeline");
@@ -453,6 +475,67 @@ export async function bulkAssignAction(
       message: ownerNamn
         ? `${leadIds.length} leads tilldelade ${ownerNamn}`
         : `Tilldelningen borttagen för ${leadIds.length} leads`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Affärsvärde (pipelineprognosen)                                      */
+/* ------------------------------------------------------------------ */
+
+const dealValueSchema = z.object({
+  leadId: z.uuid(),
+  /** Förväntat värde i kr; null tar bort värdet. */
+  valueSek: z.number().int().min(0).max(10_000_000_000).nullable(),
+});
+
+export async function setDealValueAction(
+  input: z.infer<typeof dealValueSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireUser();
+    const parsed = dealValueSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Ogiltigt belopp." };
+    const { leadId } = parsed.data;
+    const valueSek = parsed.data.valueSek === 0 ? null : parsed.data.valueSek;
+
+    const lead = await fetchLead(leadId);
+    if (!lead) return { ok: false, message: "Leadet hittades inte." };
+
+    const supabase = await createSupabaseServerClient();
+    const { data: before } = await supabase
+      .from("leads")
+      .select("deal_value_sek")
+      .eq("id", leadId)
+      .maybeSingle();
+    const fromValue = before?.deal_value_sek === null ? 0 : Number(before?.deal_value_sek ?? 0);
+    if (fromValue === (valueSek ?? 0)) return { ok: true, message: "Ingen ändring." };
+
+    const { error } = await supabase
+      .from("leads")
+      .update({ deal_value_sek: valueSek })
+      .eq("id", leadId);
+    if (error) return { ok: false, message: `Kunde inte spara: ${error.message}` };
+
+    await logActivity({
+      actorId: session.userId,
+      entityType: "lead",
+      entityId: lead.orgnr,
+      action: "affarsvarde_satt",
+      payload: {
+        orgnr: lead.orgnr,
+        namn: lead.namn,
+        belopp: valueSek ?? 0,
+        fran_belopp: fromValue,
+      },
+    });
+    revalidateLeadViews(lead.orgnr);
+    revalidatePath("/statistik");
+    return {
+      ok: true,
+      message: valueSek ? `Affärsvärde satt till ${fmtKr(valueSek)}` : "Affärsvärdet borttaget",
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };

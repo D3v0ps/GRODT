@@ -10,6 +10,8 @@ import { displayYears, getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { IconBack, IconError, IconInfo } from "@/components/icons";
+import { ContactsCard, type ContactRow } from "./contacts-card";
+import { DealValueCard } from "./deal-value-card";
 import { DetailActions } from "./detail-actions";
 import { FollowUpCard } from "./follow-up-card";
 import { GoogleEnrichButton } from "./google-enrich-button";
@@ -53,6 +55,7 @@ export default async function BolagDetaljPage({
     leadRes,
     usersRes,
     customerRes,
+    contactsRes,
     notesRes,
     activities,
   ] = await Promise.all([
@@ -73,12 +76,17 @@ export default async function BolagDetaljPage({
     supabase
       .from("leads")
       .select(
-        "id, status, owner_id, follow_up_at, follow_up_note, follow_up_user, fu:profiles!leads_follow_up_user_fkey(namn)",
+        "id, status, owner_id, follow_up_at, follow_up_note, follow_up_user, deal_value_sek, fu:profiles!leads_follow_up_user_fkey(namn)",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
     supabase.from("customers").select("id").eq("orgnr", orgnr).maybeSingle(),
+    supabase
+      .from("company_contacts")
+      .select("id, namn, titel, telefon, epost, anteckning, kalla")
+      .eq("orgnr", orgnr)
+      .order("created_at", { ascending: true }),
     supabase
       .from("notes")
       .select("id, body, created_at, profiles(namn), leads!inner(orgnr)")
@@ -95,6 +103,7 @@ export default async function BolagDetaljPage({
   const lead = leadRes.data ?? null;
   const users = usersRes.data ?? [];
   const customer = customerRes.data ?? null;
+  const contacts = (contactsRes.data ?? []) as ContactRow[];
   const notes = (notesRes.data ?? []) as unknown as NoteRow[];
 
   const omsByYear = new Map(financials.map((f) => [f.year, f.revenue_sek]));
@@ -393,6 +402,7 @@ export default async function BolagDetaljPage({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+        <ContactsCard orgnr={orgnr} contacts={contacts} />
         {lead && session && (
           <FollowUpCard
             leadId={lead.id}
@@ -401,6 +411,12 @@ export default async function BolagDetaljPage({
             followUpUserNamn={profileName(lead.fu as ProfileRef | ProfileRef[] | null)}
             currentUserId={session.userId}
             users={users}
+          />
+        )}
+        {lead && (
+          <DealValueCard
+            leadId={lead.id}
+            valueSek={lead.deal_value_sek === null ? null : Number(lead.deal_value_sek)}
           />
         )}
         <div className="card">

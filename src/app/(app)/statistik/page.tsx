@@ -26,6 +26,18 @@ interface OwnerStatusRow {
   owner_id: string | null;
   status: string;
   antal: number;
+  varde: number;
+}
+
+interface LossReasonRow {
+  orsak: string;
+  antal: number;
+}
+
+interface StageDurationRow {
+  steg: string;
+  snitt_dagar: number;
+  antal: number;
 }
 
 const AKTIVA_STATUSAR = ["ny", "kontaktad", "dialog", "mote"] as const;
@@ -34,6 +46,14 @@ const AKTIVA_LABELS: Record<(typeof AKTIVA_STATUSAR)[number], string> = {
   kontaktad: "Kontaktad",
   dialog: "Dialog",
   mote: "Möte",
+};
+
+/** Sannolikhetsvikt per status för den viktade pipelineprognosen. */
+const VIKTER: Record<(typeof AKTIVA_STATUSAR)[number], number> = {
+  ny: 0.1,
+  kontaktad: 0.25,
+  dialog: 0.5,
+  mote: 0.75,
 };
 
 export default async function StatistikPage({
@@ -45,12 +65,12 @@ export default async function StatistikPage({
   const { from, to } = periodRange(period);
   const supabase = await createSupabaseServerClient();
 
-  const [statsRes, pipelineRes] = await Promise.all([
-    supabase.rpc("seller_stats", {
-      p_from: from.toISOString(),
-      p_to: to.toISOString(),
-    }),
+  const range = { p_from: from.toISOString(), p_to: to.toISOString() };
+  const [statsRes, pipelineRes, lossRes, durationsRes] = await Promise.all([
+    supabase.rpc("seller_stats", range),
     supabase.rpc("lead_owner_status_counts"),
+    supabase.rpc("loss_reasons", range),
+    supabase.rpc("stage_durations", range),
   ]);
 
   const stats = ((statsRes.data ?? []) as SellerStatsRow[])
@@ -78,19 +98,69 @@ export default async function StatistikPage({
   const summa = (key: keyof SellerStatsRow) =>
     stats.reduce((sum, row) => sum + Number(row[key]), 0);
 
-  // Pipeline-nuläget: aktiva leads (Ny–Möte) per ansvarig + otilldelade.
-  const pipeline = new Map<string, Record<string, number>>();
+  // Pipeline-nuläget: aktiva leads (Ny–Möte) per ansvarig + otilldelade,
+  // med affärsvärde per cell för prognosen.
+  const pipeline = new Map<string, Record<string, { antal: number; varde: number }>>();
   for (const row of (pipelineRes.data ?? []) as OwnerStatusRow[]) {
     const key = row.owner_id ?? "";
     const bucket = pipeline.get(key) ?? {};
-    bucket[row.status] = Number(row.antal);
+    bucket[row.status] = { antal: Number(row.antal), varde: Number(row.varde) };
     pipeline.set(key, bucket);
   }
   const aktiva = (ownerId: string, status: string) =>
-    pipeline.get(ownerId)?.[status] ?? 0;
+    pipeline.get(ownerId)?.[status]?.antal ?? 0;
   const aktivaTotalt = (ownerId: string) =>
     AKTIVA_STATUSAR.reduce((sum, s) => sum + aktiva(ownerId, s), 0);
+  const varde = (ownerId: string) =>
+    AKTIVA_STATUSAR.reduce(
+      (sum, s) => sum + (pipeline.get(ownerId)?.[s]?.varde ?? 0),
+      0,
+    );
   const otilldelade = aktivaTotalt("");
+
+  // Prognosen summeras över ALLA ägare (även otilldelade leads).
+  let pipelineVarde = 0;
+  let viktatVarde = 0;
+  for (const bucket of pipeline.values()) {
+    for (const status of AKTIVA_STATUSAR) {
+      const cell = bucket[status];
+      if (!cell) continue;
+      pipelineVarde += cell.varde;
+      viktatVarde += cell.varde * VIKTER[status];
+    }
+  }
+
+  // Tratt och analys ur periodens loggade händelser.
+  const kontaktade = summa("kontaktade");
+  const dialoger = summa("dialoger");
+  const moten = summa("moten");
+  const vunna = summa("vunna");
+  const forlorade = summa("forlorade");
+  const tratt = [
+    { label: "Kontaktade", antal: kontaktade },
+    { label: "Dialoger", antal: dialoger },
+    { label: "Möten", antal: moten },
+    { label: "Vunna", antal: vunna },
+  ];
+  const trattMax = Math.max(1, ...tratt.map((s) => s.antal));
+  const winRate =
+    vunna + forlorade > 0 ? Math.round((vunna / (vunna + forlorade)) * 100) : null;
+
+  const lossReasons = ((lossRes.data ?? []) as LossReasonRow[]).map((row) => ({
+    orsak: row.orsak,
+    antal: Number(row.antal),
+  }));
+  const lossMax = Math.max(1, ...lossReasons.map((r) => r.antal));
+
+  const durations = new Map(
+    ((durationsRes.data ?? []) as StageDurationRow[]).map((row) => [
+      row.steg,
+      Number(row.snitt_dagar),
+    ]),
+  );
+  const durationText = AKTIVA_STATUSAR.filter((s) => durations.has(s))
+    .map((s) => `${AKTIVA_LABELS[s]} ${String(durations.get(s)).replace(".", ",")} d`)
+    .join(" · ");
 
   return (
     <section className="view view-wide">
@@ -148,6 +218,84 @@ export default async function StatistikPage({
           <div className="kpi-label">Intjänat</div>
           <div className="kpi-value">{fmtKr(summa("intjanat"))}</div>
           <div className="kpi-meta">Intäkter daterade i perioden</div>
+        </div>
+      </div>
+
+      <div className="analys-grid">
+        <div className="card">
+          <div className="card-head">
+            <h2>Konverteringstratt</h2>
+            <span className="small faint">
+              {winRate === null ? "Ingen avgjord affär i perioden" : `Win rate ${winRate} %`}
+            </span>
+          </div>
+          <div className="card-body">
+            <div className="tratt">
+              {tratt.map((steg, index) => {
+                const prev = index === 0 ? null : tratt[index - 1].antal;
+                const andel =
+                  prev === null || prev === 0
+                    ? null
+                    : Math.round((steg.antal / prev) * 100);
+                return (
+                  <div className="t-rad" key={steg.label}>
+                    <span className="t-label">{steg.label}</span>
+                    <span className="t-bar">
+                      <span
+                        style={{ width: `${Math.round((steg.antal / trattMax) * 100)}%` }}
+                      />
+                    </span>
+                    <span className="t-tal mono">
+                      {fmtNumber(steg.antal)}
+                      {andel !== null && (
+                        <span className="faint"> ({andel} %)</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {durationText && (
+              <p className="small faint" style={{ margin: "12px 0 0" }}>
+                Snitt-tid i steg innan vidareflytt: {durationText}.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <h2>Förlustorsaker</h2>
+            <span className="small faint">
+              {forlorade > 0
+                ? `${fmtNumber(forlorade)} förlorade i perioden`
+                : "Inga förlorade i perioden"}
+            </span>
+          </div>
+          <div className="card-body">
+            {lossReasons.length === 0 ? (
+              <p className="small faint" style={{ margin: 0 }}>
+                När ett lead flyttas till Förlorad frågar appen alltid efter orsaken –
+                topplistan över orsakerna hamnar här.
+              </p>
+            ) : (
+              <div className="tratt">
+                {lossReasons.map((reason) => (
+                  <div className="t-rad" key={reason.orsak}>
+                    <span className="t-label" title={reason.orsak}>
+                      {reason.orsak}
+                    </span>
+                    <span className="t-bar forlust">
+                      <span
+                        style={{ width: `${Math.round((reason.antal / lossMax) * 100)}%` }}
+                      />
+                    </span>
+                    <span className="t-tal mono">{fmtNumber(reason.antal)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -216,9 +364,9 @@ export default async function StatistikPage({
           <strong style={{ fontSize: 13 }}>Pipeline just nu</strong>
           <span className="spacer" />
           <span className="result-count">
-            {otilldelade > 0
-              ? `${fmtNumber(otilldelade)} aktiva leads utan ansvarig`
-              : "Alla aktiva leads har en ansvarig"}
+            {pipelineVarde > 0
+              ? `Pipelinevärde ${fmtKr(pipelineVarde)} · viktat ≈ ${fmtKr(Math.round(viktatVarde))}`
+              : "Sätt affärsvärden på bolagskorten så byggs prognosen här"}
           </span>
         </div>
         <div className="table-wrap">
@@ -232,6 +380,9 @@ export default async function StatistikPage({
                   </th>
                 ))}
                 <th className="num">Aktiva totalt</th>
+                <th className="num" title="Summan av satta affärsvärden på aktiva leads">
+                  Värde
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -251,6 +402,9 @@ export default async function StatistikPage({
                   <td className="num" style={{ fontWeight: 600 }}>
                     {fmtNumber(aktivaTotalt(row.user_id))}
                   </td>
+                  <td className="num">
+                    {varde(row.user_id) > 0 ? fmtKr(varde(row.user_id)) : "–"}
+                  </td>
                 </tr>
               ))}
               {otilldelade > 0 && (
@@ -266,6 +420,7 @@ export default async function StatistikPage({
                     </td>
                   ))}
                   <td className="num faint">{fmtNumber(otilldelade)}</td>
+                  <td className="num faint">{varde("") > 0 ? fmtKr(varde("")) : "–"}</td>
                 </tr>
               )}
             </tbody>
@@ -276,7 +431,9 @@ export default async function StatistikPage({
       <p className="small faint" style={{ marginTop: 10 }}>
         Kontaktade/Dialoger/Möten/Vunna räknar statusbyten i aktivitetsloggen – den som
         gör bytet får poängen. Intjänat krediteras säljaren som vann kunden, oavsett vem
-        som registrerade intäkten. Klicka på ett namn för personens profil och historik.
+        som registrerade intäkten. Viktade prognosen räknar affärsvärdena gånger
+        sannolikhetsvikt per steg (Ny 10 % · Kontaktad 25 % · Dialog 50 % · Möte 75 %).
+        Klicka på ett namn för personens profil och historik.
       </p>
     </section>
   );

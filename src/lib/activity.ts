@@ -1,4 +1,5 @@
 import type { ActivityAction } from "./activity-actions";
+import { sendTeamWebhook, webhookText } from "./notify";
 import { addDays, stockholmOffset } from "./period";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -39,6 +40,23 @@ export async function logActivity(input: ActivityInput): Promise<void> {
   if (error) {
     // Loggning får aldrig fälla själva mutationen – men gör felet synligt.
     console.error("Kunde inte skriva audit log:", error.message);
+  }
+
+  // Lagviktiga händelser går vidare till teamets chatt-webhook. Avgörs av
+  // webhookText (snäv lista) så att kanalen inte blir brus; aktörsnamnet
+  // hämtas bara när händelsen faktiskt ska skickas.
+  if (webhookText(input.action, input.payload ?? {}, "") !== null) {
+    let actorNamn = "Systemet";
+    if (input.actorId) {
+      const { data } = await admin
+        .from("profiles")
+        .select("namn")
+        .eq("id", input.actorId)
+        .maybeSingle();
+      if (data?.namn) actorNamn = data.namn;
+    }
+    const text = webhookText(input.action, input.payload ?? {}, actorNamn);
+    if (text) await sendTeamWebhook(text);
   }
 }
 
