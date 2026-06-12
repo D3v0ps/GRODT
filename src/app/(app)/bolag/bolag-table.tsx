@@ -26,19 +26,34 @@ interface Props {
   rows: LeadListRow[];
   total: number;
   params: ListParams;
-  years: [number, number];
+  /** Fyraårsfönstret som visas som kolumner, t.ex. [2021, 2022, 2023, 2024]. */
+  years: [number, number, number, number];
+  /** Kvalificeringsåren ur Inställningar – får röd punkt vid ELLER-kvalificering. */
+  qualYears: [number, number];
   threshold: number;
   sniCodes: string[];
   orter: string[];
   users: UserOption[];
 }
 
+const OMS_SORT_KEYS = ["oms1", "oms2", "oms3", "oms4"] as const;
+
 const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: "namn", label: "Bolagsnamn" },
   { key: "ort", label: "Ort" },
 ];
 
-export function BolagTable({ rows, total, params, years, threshold, sniCodes, orter, users }: Props) {
+export function BolagTable({
+  rows,
+  total,
+  params,
+  years,
+  qualYears,
+  threshold,
+  sniCodes,
+  orter,
+  users,
+}: Props) {
   const router = useRouter();
   const [search, setSearch] = useState(params.sok);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -93,7 +108,7 @@ export function BolagTable({ rows, total, params, years, threshold, sniCodes, or
           <h1>Bolag</h1>
           <p className="lede">
             Målbild: {sniCodes.map((c) => sniLabel(c)).join(" · ")} · nettoomsättning ≥{" "}
-            {fmtKr(threshold)} för minst ett av åren {years[0]}/{years[1]}
+            {fmtKr(threshold)} för minst ett av åren {qualYears[0]}/{qualYears[1]}
           </p>
         </div>
         <div className="actions">
@@ -209,18 +224,18 @@ export function BolagTable({ rows, total, params, years, threshold, sniCodes, or
                     </Link>
                   </th>
                 ))}
-                <th className="num sortable" aria-sort={ariaSort("oms1")}>
-                  <Link href={sortHref("oms1")}>
-                    Omsättning {years[0]}
-                    <span className="sort-arrow">{sortArrow("oms1")}</span>
-                  </Link>
-                </th>
-                <th className="num sortable" aria-sort={ariaSort("oms2")}>
-                  <Link href={sortHref("oms2")}>
-                    Omsättning {years[1]}
-                    <span className="sort-arrow">{sortArrow("oms2")}</span>
-                  </Link>
-                </th>
+                {years.map((year, index) => (
+                  <th
+                    key={year}
+                    className="num sortable"
+                    aria-sort={ariaSort(OMS_SORT_KEYS[index])}
+                  >
+                    <Link href={sortHref(OMS_SORT_KEYS[index])}>
+                      Omsättning {year}
+                      <span className="sort-arrow">{sortArrow(OMS_SORT_KEYS[index])}</span>
+                    </Link>
+                  </th>
+                ))}
                 <th className="num sortable" aria-sort={ariaSort("tillvaxt")}>
                   <Link href={sortHref("tillvaxt")}>
                     Tillväxt
@@ -240,7 +255,7 @@ export function BolagTable({ rows, total, params, years, threshold, sniCodes, or
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ height: "auto", whiteSpace: "normal" }}>
+                  <td colSpan={11} style={{ height: "auto", whiteSpace: "normal" }}>
                     {hasFilters ? (
                       <EmptyState
                         title="Inga bolag matchar filtren"
@@ -266,7 +281,14 @@ export function BolagTable({ rows, total, params, years, threshold, sniCodes, or
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <BolagRow key={row.lead_id} row={row} threshold={threshold} sniCodes={sniCodes} />
+                  <BolagRow
+                    key={row.lead_id}
+                    row={row}
+                    years={years}
+                    qualYears={qualYears}
+                    threshold={threshold}
+                    sniCodes={sniCodes}
+                  />
                 ))
               )}
             </tbody>
@@ -313,20 +335,33 @@ export function BolagTable({ rows, total, params, years, threshold, sniCodes, or
 
 function BolagRow({
   row,
+  years,
+  qualYears,
   threshold,
   sniCodes,
 }: {
   row: LeadListRow;
+  years: [number, number, number, number];
+  qualYears: [number, number];
   threshold: number;
   sniCodes: string[];
 }) {
   const router = useRouter();
-  const under1 = row.oms1 === null || row.oms1 < threshold;
-  const under2 = row.oms2 === null || row.oms2 < threshold;
-  const mark1 = !under1 && under2;
-  const mark2 = !under2 && under1;
+  const values = [row.oms1, row.oms2, row.oms3, row.oms4];
   const underTitle = `Under tröskel ${fmtKr(threshold)}`;
   const markTitle = "Kvalificerande år (når tröskeln)";
+  // Röd punkt på kvalificeringsåret när det andra kvalificeringsåret
+  // ligger under tröskeln (ELLER-logiken synliggjord).
+  const qualValue = (year: number) => values[years.indexOf(year)] ?? null;
+  const qualOver = (year: number) => {
+    const v = qualValue(year);
+    return v !== null && v >= threshold;
+  };
+  const showQualMark = (year: number) => {
+    if (year !== qualYears[0] && year !== qualYears[1]) return false;
+    const other = year === qualYears[0] ? qualYears[1] : qualYears[0];
+    return qualOver(year) && !qualOver(other);
+  };
   const sniMismatch =
     row.sni_kod !== null &&
     sniCodes.length > 0 &&
@@ -367,14 +402,20 @@ function BolagRow({
       </td>
       <td className="org mono">{row.orgnr}</td>
       <td>{row.ort ?? "–"}</td>
-      <td className={`num${under1 ? " under" : ""}`} title={under1 ? underTitle : undefined}>
-        {row.oms1 === null ? "–" : fmtKr(row.oms1)}
-        {mark1 && <span className="qual-mark" title={markTitle} />}
-      </td>
-      <td className={`num${under2 ? " under" : ""}`} title={under2 ? underTitle : undefined}>
-        {row.oms2 === null ? "–" : fmtKr(row.oms2)}
-        {mark2 && <span className="qual-mark" title={markTitle} />}
-      </td>
+      {years.map((year, index) => {
+        const value = values[index];
+        const under = value === null || value < threshold;
+        return (
+          <td
+            key={year}
+            className={`num${under ? " under" : ""}`}
+            title={under && value !== null ? underTitle : undefined}
+          >
+            {value === null ? "–" : fmtKr(value)}
+            {showQualMark(year) && <span className="qual-mark" title={markTitle} />}
+          </td>
+        );
+      })}
       <td
         className="num"
         style={growth !== null && growth > 0 ? { color: "var(--ok)", fontWeight: 600 } : undefined}

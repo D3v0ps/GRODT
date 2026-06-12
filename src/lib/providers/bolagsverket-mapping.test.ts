@@ -55,6 +55,16 @@ describe("Bolagsverket-fältmappning", () => {
     });
   });
 
+  it("normaliserar orter i versaler till normal skiftning", () => {
+    const details = mapBolagsverketOrganisation({
+      ...organisation,
+      postadressOrganisation: {
+        postadress: { utdelningsadress: "Industrigatan 4", postort: "HISINGS BACKA" },
+      },
+    });
+    expect(details.ort).toBe("Hisings Backa");
+  });
+
   it("mappar avregistrering och reklamspärr", () => {
     const details = mapBolagsverketOrganisation({
       ...organisation,

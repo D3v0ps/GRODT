@@ -95,6 +95,11 @@ interface BvDokument {
   registreringstidpunkt?: string;
 }
 
+/** Bolagsverket levererar orter i VERSALER – "HISINGS BACKA" → "Hisings Backa". */
+function titleCaseOrt(value: string): string {
+  return value.toLowerCase().replace(/(^|[\s\-/])\p{L}/gu, (m) => m.toUpperCase());
+}
+
 /** Organisation → våra bolagsfält. Kontakt/anställda finns inte i API:et → null. */
 export function mapBolagsverketOrganisation(org: BvOrganisation): CompanyDetails {
   const orgnr = normalizeOrgnr(org.organisationsidentitet?.identitetsbeteckning ?? "");
@@ -109,10 +114,11 @@ export function mapBolagsverketOrganisation(org: BvOrganisation): CompanyDetails
   const sni = (org.naringsgrenOrganisation?.sni ?? []).find((s) => s.kod);
   // Datum kan komma som "2023-05-05T00:00:00.000+00:00" – behåll datumdelen.
   const avregDatum = org.avregistreradOrganisation?.avregistreringsdatum?.slice(0, 10) || null;
+  const ort = adress?.postort?.trim();
   return {
     orgnr,
     namn: namn?.trim() || "Okänt bolagsnamn",
-    ort: adress?.postort?.trim() || null,
+    ort: ort ? titleCaseOrt(ort) : null,
     sniKod: formatSniCode(sni?.kod ?? null),
     adress: adress?.utdelningsadress?.trim() || null,
     antalAnstallda: null,

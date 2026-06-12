@@ -5,7 +5,7 @@ import {
   rpcArgs,
   type LeadListRow,
 } from "@/lib/list-params";
-import { displayYears, getSyncFilter } from "@/lib/settings";
+import { getSyncFilter, tableYearWindow } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { Kanban, type KanbanCard } from "./kanban";
@@ -17,7 +17,7 @@ const KANBAN_LIMIT = 2000;
 export default async function PipelinePage() {
   const supabase = await createSupabaseServerClient();
   const settings = await getSyncFilter(supabase);
-  const years = displayYears(settings);
+  const years = tableYearWindow(settings);
 
   const { data } = await supabase.rpc(
     "list_leads",
@@ -25,20 +25,22 @@ export default async function PipelinePage() {
   );
   const rows = (data ?? []) as LeadListRow[];
 
-  const cards: KanbanCard[] = rows.map((row) => ({
-    leadId: row.lead_id,
-    orgnr: row.orgnr,
-    namn: row.namn,
-    ort: row.ort,
-    status: row.status,
-    ownerId: row.owner_id,
-    ownerNamn: row.owner_namn,
-    maxOms:
-      row.oms1 === null && row.oms2 === null
-        ? null
-        : Math.max(row.oms1 ?? 0, row.oms2 ?? 0),
-    dagar: daysSince(row.updated_at),
-  }));
+  const cards: KanbanCard[] = rows.map((row) => {
+    const oms = [row.oms1, row.oms2, row.oms3, row.oms4].filter(
+      (v): v is number => v !== null,
+    );
+    return {
+      leadId: row.lead_id,
+      orgnr: row.orgnr,
+      namn: row.namn,
+      ort: row.ort,
+      status: row.status,
+      ownerId: row.owner_id,
+      ownerNamn: row.owner_namn,
+      maxOms: oms.length === 0 ? null : Math.max(...oms),
+      dagar: daysSince(row.updated_at),
+    };
+  });
 
   return (
     <section className="view">

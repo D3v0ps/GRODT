@@ -232,6 +232,8 @@ img.avatar-img { object-fit: cover; background: var(--line-soft); }
 /* ============ Innehåll ============ */
 .main { min-width: 0; }
 .view { padding: 28px 32px 48px; max-width: 1320px; }
+/* Datatäta vyer (bolagslistan) får använda hela skärmbredden. */
+.view-wide { max-width: none; }
 
 .view-head {
   display: flex;

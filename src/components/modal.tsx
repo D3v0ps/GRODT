@@ -31,13 +31,19 @@ export function Modal({
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    // Flytta fokus till första fältet/knappen i modalen.
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  // Fokus flyttas in EN gång när modalen öppnas – beroendet får inte
+  // inkludera onClose (återskapas per render), annars rycks fokus
+  // tillbaka till första fältet vid varje tangenttryckning.
+  useEffect(() => {
+    if (!open) return;
     const focusable = ref.current?.querySelector<HTMLElement>(
       "input, select, textarea, button.btn-primary, button.btn-accent, button",
     );
     focusable?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

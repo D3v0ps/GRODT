@@ -8,7 +8,16 @@ import { LEAD_STATUS_KEYS } from "@/lib/constants";
 
 export const PAGE_SIZE = 25;
 
-export const SORT_KEYS = ["namn", "ort", "oms1", "oms2", "anst", "tillvaxt"] as const;
+export const SORT_KEYS = [
+  "namn",
+  "ort",
+  "oms1",
+  "oms2",
+  "oms3",
+  "oms4",
+  "anst",
+  "tillvaxt",
+] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
 const listParamsSchema = z.object({
@@ -69,6 +78,9 @@ export interface LeadListRow {
   owner_namn: string | null;
   oms1: number | null;
   oms2: number | null;
+  oms3: number | null;
+  oms4: number | null;
+  /** Anställda för de två senaste åren (tillväxtparet). */
   anst1: number | null;
   anst2: number | null;
   oms_tillvaxt_pct: number | null;
@@ -81,7 +93,7 @@ export interface LeadListRow {
 /** Argument till list_leads-RPC:n utifrån parsade parametrar. */
 export function rpcArgs(
   params: ListParams,
-  years: [number, number],
+  years: [number, number, number, number],
   limit: number,
   offset: number,
 ) {
@@ -94,6 +106,8 @@ export function rpcArgs(
     p_rev_max: null,
     p_year1: years[0],
     p_year2: years[1],
+    p_year3: years[2],
+    p_year4: years[3],
     p_tillvaxt_min: params.vaxt ?? null,
     p_sort: params.sort,
     p_dir: params.dir,

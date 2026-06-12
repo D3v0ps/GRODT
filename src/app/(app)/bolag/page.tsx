@@ -4,7 +4,7 @@ import {
   rpcArgs,
   type LeadListRow,
 } from "@/lib/list-params";
-import { displayYears, getSyncFilter } from "@/lib/settings";
+import { displayYears, getSyncFilter, tableYearWindow } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BolagTable } from "./bolag-table";
 
@@ -18,11 +18,12 @@ export default async function BolagPage({
   const params = parseListParams(await searchParams);
   const supabase = await createSupabaseServerClient();
   const settings = await getSyncFilter(supabase);
-  const years = displayYears(settings);
+  const yearWindow = tableYearWindow(settings);
+  const qualYears = displayYears(settings);
 
   const offset = (params.sida - 1) * PAGE_SIZE;
   const [listRes, orterRes, usersRes] = await Promise.all([
-    supabase.rpc("list_leads", rpcArgs(params, years, PAGE_SIZE, offset)),
+    supabase.rpc("list_leads", rpcArgs(params, yearWindow, PAGE_SIZE, offset)),
     supabase.rpc("lead_orter"),
     supabase.from("profiles").select("id, namn").eq("aktiv", true).order("namn"),
   ]);
@@ -33,12 +34,13 @@ export default async function BolagPage({
   const users = usersRes.data ?? [];
 
   return (
-    <section className="view">
+    <section className="view view-wide">
       <BolagTable
         rows={rows}
         total={total}
         params={params}
-        years={years}
+        years={yearWindow}
+        qualYears={qualYears}
         threshold={settings.revenueMinSek}
         sniCodes={settings.sniCodes}
         orter={orter}

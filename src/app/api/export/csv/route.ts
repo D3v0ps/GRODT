@@ -9,7 +9,7 @@ import {
   rpcArgs,
   type LeadListRow,
 } from "@/lib/list-params";
-import { displayYears, getSyncFilter } from "@/lib/settings";
+import { getSyncFilter, tableYearWindow } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   );
   const supabase = await createSupabaseServerClient();
   const settings = await getSyncFilter(supabase);
-  const years = displayYears(settings);
+  const years = tableYearWindow(settings);
 
   const { data, error } = await supabase.rpc(
     "list_leads",
@@ -51,9 +51,11 @@ export async function GET(request: NextRequest) {
       "SNI",
       `Omsättning ${years[0]} (kr)`,
       `Omsättning ${years[1]} (kr)`,
+      `Omsättning ${years[2]} (kr)`,
+      `Omsättning ${years[3]} (kr)`,
       "Tillväxt (%)",
-      `Anställda ${years[0]}`,
-      `Anställda ${years[1]}`,
+      `Anställda ${years[2]}`,
+      `Anställda ${years[3]}`,
       "Anställda",
       "Status",
       "Ansvarig",
@@ -66,6 +68,8 @@ export async function GET(request: NextRequest) {
       row.sni_kod,
       row.oms1,
       row.oms2,
+      row.oms3,
+      row.oms4,
       row.oms_tillvaxt_pct === null ? "" : String(row.oms_tillvaxt_pct).replace(".", ","),
       row.anst1,
       row.anst2,

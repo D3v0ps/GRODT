@@ -43,12 +43,23 @@ export async function getSyncFilter(
   };
 }
 
-/** De två åren som visas som kolumner i bolagslistan. */
+/** De två kvalificeringsåren (visas på bolagskortet och i exporten). */
 export function displayYears(settings: SyncFilterSettings): [number, number] {
   const years = [...settings.revenueYears].sort((a, b) => a - b);
   if (years.length === 0) return [2021, 2022];
   if (years.length === 1) return [years[0], years[0]];
   return [years[years.length - 2], years[years.length - 1]];
+}
+
+/**
+ * Fyraårsfönstret i bolagslistan: de fyra åren fram till och med det
+ * senaste kvalificeringsåret (t.ex. [2021, 2022, 2023, 2024]).
+ */
+export function tableYearWindow(
+  settings: SyncFilterSettings,
+): [number, number, number, number] {
+  const [, latest] = displayYears(settings);
+  return [latest - 3, latest - 2, latest - 1, latest];
 }
 
 export async function getAutoSyncEnabled(
