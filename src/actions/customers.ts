@@ -375,6 +375,200 @@ export async function addCustomerRevenueAction(
   }
 }
 
+const updateRevenueSchema = z.object({
+  revenueId: z.uuid(),
+  amountSek: z.number().int().positive("Beloppet måste vara större än 0 kr."),
+  beskrivning: z.string().trim().max(300).optional(),
+  datum: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Datum anges som ÅÅÅÅ-MM-DD."),
+});
+
+interface RevenueRow {
+  id: string;
+  customer_id: string;
+  amount_sek: number;
+  beskrivning: string | null;
+  customer: { orgnr: string; namn: string } | null;
+}
+
+async function fetchRevenue(revenueId: string): Promise<RevenueRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("customer_revenues")
+    .select("id, customer_id, amount_sek, beskrivning, customers(orgnr, companies(namn))")
+    .eq("id", revenueId)
+    .maybeSingle();
+  if (!data) return null;
+  const customers = data.customers as
+    | { orgnr: string; companies: { namn: string } | { namn: string }[] | null }
+    | { orgnr: string; companies: { namn: string } | { namn: string }[] | null }[]
+    | null;
+  const customer = Array.isArray(customers) ? customers[0] : customers;
+  const companies = customer?.companies;
+  const namn = Array.isArray(companies) ? companies[0]?.namn : companies?.namn;
+  return {
+    id: data.id,
+    customer_id: data.customer_id,
+    amount_sek: Number(data.amount_sek),
+    beskrivning: data.beskrivning,
+    customer: customer ? { orgnr: customer.orgnr, namn: namn ?? customer.orgnr } : null,
+  };
+}
+
+/** Rätta en felregistrerad intäkt – tillåts för den som skapade posten samt admin (RLS). */
+export async function updateCustomerRevenueAction(
+  input: z.infer<typeof updateRevenueSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireUser();
+    const parsed = updateRevenueSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: parsed.error.issues[0]?.message ?? "Ogiltiga uppgifter." };
+    }
+    const { revenueId, amountSek, beskrivning, datum } = parsed.data;
+
+    const existing = await fetchRevenue(revenueId);
+    if (!existing) return { ok: false, message: "Intäktsposten hittades inte." };
+
+    const supabase = await createSupabaseServerClient();
+    const { data: updated, error } = await supabase
+      .from("customer_revenues")
+      .update({
+        amount_sek: amountSek,
+        beskrivning: beskrivning || null,
+        datum,
+      })
+      .eq("id", revenueId)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, message: `Kunde inte spara: ${error.message}` };
+    if (!updated) {
+      return {
+        ok: false,
+        message: "Du kan bara redigera intäkter du själv registrerat (admin kan redigera alla).",
+      };
+    }
+
+    await logActivity({
+      actorId: session.userId,
+      entityType: "kund",
+      entityId: existing.customer?.orgnr ?? revenueId,
+      action: "kund_intakt_andrad",
+      payload: {
+        orgnr: existing.customer?.orgnr ?? "",
+        namn: existing.customer?.namn ?? "",
+        fran_belopp: existing.amount_sek,
+        belopp: amountSek,
+        beskrivning: beskrivning ?? "",
+      },
+    });
+    revalidateCustomerViews(existing.customer?.orgnr);
+    return { ok: true, message: `Intäkten ändrad till ${fmtKr(amountSek)}` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
+const deleteRevenueSchema = z.object({ revenueId: z.uuid() });
+
+/** Ta bort en felregistrerad intäkt – samma behörighet som redigering. */
+export async function deleteCustomerRevenueAction(
+  input: z.infer<typeof deleteRevenueSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireUser();
+    const parsed = deleteRevenueSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Ogiltig förfrågan." };
+
+    const existing = await fetchRevenue(parsed.data.revenueId);
+    if (!existing) return { ok: false, message: "Intäktsposten hittades inte." };
+
+    const supabase = await createSupabaseServerClient();
+    const { data: deleted, error } = await supabase
+      .from("customer_revenues")
+      .delete()
+      .eq("id", parsed.data.revenueId)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, message: `Kunde inte ta bort: ${error.message}` };
+    if (!deleted) {
+      return {
+        ok: false,
+        message: "Du kan bara ta bort intäkter du själv registrerat (admin kan ta bort alla).",
+      };
+    }
+
+    await logActivity({
+      actorId: session.userId,
+      entityType: "kund",
+      entityId: existing.customer?.orgnr ?? parsed.data.revenueId,
+      action: "kund_intakt_borttagen",
+      payload: {
+        orgnr: existing.customer?.orgnr ?? "",
+        namn: existing.customer?.namn ?? "",
+        belopp: existing.amount_sek,
+        beskrivning: existing.beskrivning ?? "",
+      },
+    });
+    revalidateCustomerViews(existing.customer?.orgnr);
+    return { ok: true, message: `Intäkten på ${fmtKr(existing.amount_sek)} är borttagen` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
+const contactSchema = z.object({
+  customerId: z.uuid(),
+  kontaktperson: z.string().trim().max(120).optional(),
+  telefon: z.string().trim().max(40).optional(),
+  epost: z.union([z.literal(""), z.email("Ogiltig e-postadress.")]).optional(),
+});
+
+/** Teamets verifierade kontaktväg till kunden ("numret man når dem på"). */
+export async function updateCustomerContactAction(
+  input: z.infer<typeof contactSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireUser();
+    const parsed = contactSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: parsed.error.issues[0]?.message ?? "Ogiltiga uppgifter." };
+    }
+    const { customerId, kontaktperson, telefon, epost } = parsed.data;
+
+    const customer = await fetchCustomer(customerId);
+    if (!customer) return { ok: false, message: "Kunden hittades inte." };
+
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        kontaktperson: kontaktperson || null,
+        kontakt_telefon: telefon || null,
+        kontakt_epost: epost || null,
+      })
+      .eq("id", customerId);
+    if (error) return { ok: false, message: `Kunde inte spara: ${error.message}` };
+
+    await logActivity({
+      actorId: session.userId,
+      entityType: "kund",
+      entityId: customer.orgnr,
+      action: "kund_kontakt_andrad",
+      payload: {
+        orgnr: customer.orgnr,
+        namn: customer.namn,
+        kontaktperson: kontaktperson ?? "",
+      },
+    });
+    revalidateCustomerViews(customer.orgnr);
+    return { ok: true, message: "Kontaktuppgifterna sparade" };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
 const noteSchema = z.object({
   customerId: z.uuid(),
   body: z.string().trim().min(1, "Kommentaren är tom.").max(4000),

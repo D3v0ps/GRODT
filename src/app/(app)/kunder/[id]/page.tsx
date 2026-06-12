@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
+import { getSessionProfile } from "@/lib/auth";
 import { fmtDate, fmtDateTime, fmtKr } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
 import { IconBack } from "@/components/icons";
-import { KundActions, KundNoteForm, RevenueForm } from "./kund-actions";
+import { ContactCard } from "./contact-card";
+import { KundActions, KundNoteForm } from "./kund-actions";
+import { RevenueSection, type RevenueEntry } from "./revenue-section";
 
 export const metadata = { title: "Kund – GRODT" };
 
@@ -31,17 +34,18 @@ export default async function KundDetaljPage({
   const supabase = await createSupabaseServerClient();
 
   // Allt utom aktiviteterna är nyckelbart på id → en parallell omgång.
-  const [customerRes, revenuesRes, notesRes, usersRes] = await Promise.all([
+  const [session, customerRes, revenuesRes, notesRes, usersRes] = await Promise.all([
+    getSessionProfile(),
     supabase
       .from("customers")
       .select(
-        "id, orgnr, status, controller_id, saljare_id, overlamnad_at, companies(namn, ort, sni_kod), saljare:profiles!customers_saljare_id_fkey(namn), controller:profiles!customers_controller_id_fkey(namn)",
+        "id, orgnr, status, controller_id, saljare_id, overlamnad_at, kontaktperson, kontakt_telefon, kontakt_epost, companies(namn, ort, sni_kod), saljare:profiles!customers_saljare_id_fkey(namn), controller:profiles!customers_controller_id_fkey(namn)",
       )
       .eq("id", id)
       .maybeSingle(),
     supabase
       .from("customer_revenues")
-      .select("id, amount_sek, beskrivning, datum, created_at, profiles(namn)")
+      .select("id, amount_sek, beskrivning, datum, created_by, created_at, profiles(namn)")
       .eq("customer_id", id)
       .order("datum", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -106,44 +110,21 @@ export default async function KundDetaljPage({
               <span className="small faint">Belopp i kr, hela teamet ser allt</span>
             </div>
             <div className="card-body">
-              {revenues.length === 0 ? (
-                <EmptyState
-                  title="Inga intäkter registrerade"
-                  description="Registrera vad ni fakturerat eller tjänat på kunden så syns totalsumman här och i topplistan."
-                />
-              ) : (
-                <div className="table-wrap" style={{ margin: "-6px 0 6px" }}>
-                  <table className="data">
-                    <thead>
-                      <tr>
-                        <th>Datum</th>
-                        <th>Beskrivning</th>
-                        <th>Registrerad av</th>
-                        <th className="num">Belopp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {revenues.map((r) => (
-                        <tr key={r.id}>
-                          <td className="mono small">{fmtDate(r.datum)}</td>
-                          <td style={{ whiteSpace: "normal" }}>{r.beskrivning ?? "–"}</td>
-                          <td>{profileName(r.profiles as ProfileRef | ProfileRef[] | null) ?? "–"}</td>
-                          <td className="num">{fmtKr(Number(r.amount_sek))}</td>
-                        </tr>
-                      ))}
-                      <tr>
-                        <td colSpan={3} style={{ fontWeight: 700 }}>
-                          Totalt intjänat
-                        </td>
-                        <td className="num" style={{ fontWeight: 700 }}>
-                          {fmtKr(totalRevenue)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <RevenueForm customerId={customer.id} />
+              <RevenueSection
+                customerId={customer.id}
+                entries={revenues.map(
+                  (r): RevenueEntry => ({
+                    id: r.id,
+                    amountSek: Number(r.amount_sek),
+                    beskrivning: r.beskrivning,
+                    datum: r.datum,
+                    authorId: r.created_by,
+                    authorNamn: profileName(r.profiles as ProfileRef | ProfileRef[] | null),
+                  }),
+                )}
+                currentUserId={session?.userId ?? ""}
+                isAdmin={session?.roll === "admin"}
+              />
             </div>
           </div>
 
@@ -176,6 +157,12 @@ export default async function KundDetaljPage({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+          <ContactCard
+            customerId={customer.id}
+            kontaktperson={customer.kontaktperson}
+            telefon={customer.kontakt_telefon}
+            epost={customer.kontakt_epost}
+          />
           <div className="card">
             <div className="card-head">
               <h2>Kundfakta</h2>

@@ -38,6 +38,9 @@ export type ActivityAction =
   | "kund_status"
   | "kund_controller"
   | "kund_intakt"
+  | "kund_intakt_andrad"
+  | "kund_intakt_borttagen"
+  | "kund_kontakt_andrad"
   | "kund_kommentar";
 
 export interface ActivityInput {

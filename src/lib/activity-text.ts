@@ -54,6 +54,9 @@ export function actionLabel(action: string): string {
     case "kund_status":
     case "kund_controller":
     case "kund_intakt":
+    case "kund_intakt_andrad":
+    case "kund_intakt_borttagen":
+    case "kund_kontakt_andrad":
     case "kund_kommentar":
       return "Kund";
     default:
@@ -121,6 +124,12 @@ export function activityDetail(action: string, payload: Payload): string {
     }
     case "kund_intakt":
       return `${namn}: +${fmtKr(num(payload, "belopp"))}${str(payload, "beskrivning") ? ` (${str(payload, "beskrivning")})` : ""}`;
+    case "kund_intakt_andrad":
+      return `${namn}: intäkt ändrad ${fmtKr(num(payload, "fran_belopp"))} → ${fmtKr(num(payload, "belopp"))}${str(payload, "beskrivning") ? ` (${str(payload, "beskrivning")})` : ""}`;
+    case "kund_intakt_borttagen":
+      return `${namn}: intäkt borttagen, ${fmtKr(num(payload, "belopp"))}${str(payload, "beskrivning") ? ` (${str(payload, "beskrivning")})` : ""}`;
+    case "kund_kontakt_andrad":
+      return `${namn}: kontaktuppgifter uppdaterade${str(payload, "kontaktperson") ? ` (${str(payload, "kontaktperson")})` : ""}`;
     case "kund_kommentar":
       return `${namn}: ny kommentar`;
     default:
@@ -188,6 +197,12 @@ export function activityFeedText(action: string, payload: Payload): string {
     }
     case "kund_intakt":
       return `registrerade ${fmtKr(num(payload, "belopp"))} på ${namn}`;
+    case "kund_intakt_andrad":
+      return `ändrade en intäkt på ${namn} till ${fmtKr(num(payload, "belopp"))}`;
+    case "kund_intakt_borttagen":
+      return `tog bort en intäkt på ${fmtKr(num(payload, "belopp"))} från ${namn}`;
+    case "kund_kontakt_andrad":
+      return `uppdaterade kontaktuppgifterna på ${namn}`;
     case "kund_kommentar":
       return `kommenterade på ${namn}`;
     default:
@@ -236,6 +251,12 @@ export function activityTimelineText(action: string, payload: Payload): string {
     }
     case "kund_intakt":
       return `Intäkt registrerad: ${fmtKr(num(payload, "belopp"))}`;
+    case "kund_intakt_andrad":
+      return `Intäkt ändrad: ${fmtKr(num(payload, "fran_belopp"))} → ${fmtKr(num(payload, "belopp"))}`;
+    case "kund_intakt_borttagen":
+      return `Intäkt borttagen: ${fmtKr(num(payload, "belopp"))}`;
+    case "kund_kontakt_andrad":
+      return "Kontaktuppgifter uppdaterade";
     case "kund_kommentar":
       return "Kommentar tillagd";
     default:
