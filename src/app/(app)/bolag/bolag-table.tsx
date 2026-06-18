@@ -13,6 +13,7 @@ import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
 import { LEAD_STATUSES, sniLabel } from "@/lib/constants";
 import { fmtKr, fmtNumber, fmtPercent, todayStockholm } from "@/lib/format";
+import { likelyStaffing } from "@/lib/target";
 import {
   PAGE_SIZE,
   listParamsToQuery,
@@ -38,6 +39,8 @@ interface Props {
   sniCodes: string[];
   orter: string[];
   users: UserOption[];
+  /** Antal leads utanför målbilden (dolda om inte toggeln är på). */
+  offTargetCount: number;
 }
 
 const OMS_SORT_KEYS = ["oms1", "oms2", "oms3", "oms4"] as const;
@@ -57,6 +60,7 @@ export function BolagTable({
   sniCodes,
   orter,
   users,
+  offTargetCount,
 }: Props) {
   const router = useRouter();
   const toast = useToast();
@@ -384,6 +388,20 @@ export function BolagTable({
               </option>
             ))}
           </select>
+          {(offTargetCount > 0 || params.utanfor) && (
+            <label
+              className="malbild-toggle"
+              title="Bolag vars SNI ligger utanför målbilden (t.ex. personaluthyrning) döljs som standard"
+            >
+              <input
+                type="checkbox"
+                checked={params.utanfor ?? false}
+                onChange={(e) => navigate({ utanfor: e.target.checked ? true : undefined })}
+              />
+              Visa utanför målbild
+              {offTargetCount > 0 && <span className="faint"> ({fmtNumber(offTargetCount)})</span>}
+            </label>
+          )}
           <span className="spacer" />
           <span className="result-count">{fmtNumber(total)} bolag</span>
         </div>
@@ -755,14 +773,34 @@ function BolagRow({
             Avreg.
           </span>
         )}
-        {!row.avregistrerad && sniMismatch && (
+        {row.off_target_at && (
           <span
             className="badge st-forlorad"
             style={{ marginLeft: 8 }}
-            title={`Utanför målbilden: bolagets SNI är ${row.sni_kod} enligt Bolagsverket`}
+            title={`Utanför målbilden${row.off_target_sni ? ` – SNI ${row.off_target_sni}` : ""}. Dolt ur listor och pipeline som standard.`}
+          >
+            <span className="dot" />
+            Utanför målbild{row.off_target_sni ? ` (${row.off_target_sni})` : ""}
+          </span>
+        )}
+        {!row.avregistrerad && !row.off_target_at && sniMismatch && (
+          <span
+            className="badge st-forlorad"
+            style={{ marginLeft: 8 }}
+            title={`Bolagets SNI är ${row.sni_kod} enligt Bolagsverket – utanför målbilden men behållet`}
           >
             <span className="dot" />
             SNI {row.sni_kod}
+          </span>
+        )}
+        {!row.avregistrerad && !row.off_target_at && !sniMismatch && likelyStaffing(row.namn) && (
+          <span
+            className="badge st-kontaktad"
+            style={{ marginLeft: 8 }}
+            title="Namnet antyder personaluthyrning/bemanning – kontrollera SNI innan ni satsar"
+          >
+            <span className="dot" />
+            Trolig uthyrning
           </span>
         )}
       </td>

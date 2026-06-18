@@ -8,6 +8,8 @@ export const ACTIVITY_ACTIONS = [
   "status_andrad",
   "tilldelad",
   "massutdelning",
+  "utanfor_malbild",
+  "ater_malbild",
   "uppfoljning_satt",
   "uppfoljning_klar",
   "anteckning",

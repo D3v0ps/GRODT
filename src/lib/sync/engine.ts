@@ -4,6 +4,7 @@ import type {
   CompanyDetails,
   YearFinancials,
 } from "@/lib/providers/types";
+import { sniTargetState } from "@/lib/target";
 import type { SyncStore } from "./store";
 
 export interface SyncSettings {
@@ -169,6 +170,24 @@ export async function importCompany(
       `Avregistrerat hos Bolagsverket ${input.details.avregistreradDatum}`,
     );
     return { company: companyOutcome, leadCreated: false };
+  }
+
+  // Målbild: bolag utanför målgruppen (t.ex. personaluthyrning, SNI 78.200)
+  // ska inte vara säljbara leads. Bygger på den strukturerade SNI-koden –
+  // okänd SNI (ej berikat ännu) lämnas orörd. Befintliga lead flyttas ut
+  // och göms; nya skapas inte alls. Matchar SNI målbilden återförs ett
+  // tidigare auto-utflyttat lead.
+  const targetState = sniTargetState(input.details.sniKod, settings.sniCodes);
+  if (targetState === "off") {
+    await store.markOffTarget(
+      input.details.orgnr,
+      input.details.namn,
+      input.details.sniKod ?? null,
+    );
+    return { company: companyOutcome, leadCreated: false };
+  }
+  if (targetState === "target") {
+    await store.clearOffTarget(input.details.orgnr, input.details.namn);
   }
 
   const shouldHaveLead =

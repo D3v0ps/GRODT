@@ -86,9 +86,21 @@ export default async function HjalpPage() {
             <strong>Exportera CSV</strong> tar med exakt de filter du ser.
           </p>
           <p>
-            Flaggor i listan: <em>Avreg.</em> betyder att bolaget är avregistrerat hos
-            Bolagsverket (leadet flyttas automatiskt till Förlorad), och en
-            SNI-bricka visas när bolagets verkliga SNI-kod ligger utanför målbilden.
+            <strong>Målbilden (SNI):</strong> verktyget säljer bara på rätt bolag.
+            Arbetsförmedling/rekrytering är SNI 78.100; personaluthyrning (78.200) och
+            övrigt är utanför. När Bolagsverket bekräftar att ett bolag har en SNI-kod
+            utanför målbilden flyttas leadet automatiskt ut – det döljs ur listan,
+            pipelinen och statistiken (men raderas aldrig). Bocka i{" "}
+            <em>Visa utanför målbild</em> i verktygsfältet för att se dem, och öppna ett
+            bolag för att <em>Återställa det till pipelinen</em> om det ändå är säljbart.
+            Filtret bygger på den strukturerade SNI-koden, inte beskrivningstexten –
+            ett bolag som heter &quot;Bemanning&quot; men är registrerat som
+            arbetsförmedling får en gul <em>Trolig uthyrning</em>-varning att dubbelkolla,
+            inte ett automatiskt bortfall.
+          </p>
+          <p>
+            Övriga flaggor: <em>Avreg.</em> betyder att bolaget är avregistrerat hos
+            Bolagsverket (leadet flyttas automatiskt till Förlorad).
           </p>
         </div>
       </div>
@@ -302,6 +314,13 @@ export default async function HjalpPage() {
           <p>
             <strong>Varför blev ett bolag automatiskt Förlorad?</strong> Bolagsverket
             har markerat det som avregistrerat. Det syns i bolagets tidslinje.
+          </p>
+          <p>
+            <strong>Vart tog ett bolag vägen ur listan?</strong> Troligen flyttades det
+            ut ur målbilden för att Bolagsverkets SNI-kod visade personaluthyrning eller
+            annan bransch utanför 78.100. Bocka i &quot;Visa utanför målbild&quot; i
+            bolagslistan, öppna bolaget och klicka &quot;Återställ till pipelinen&quot;
+            om det ändå ska säljas på.
           </p>
           <p>
             <strong>Kan jag ångra en intäkt?</strong> Ja – öppna kunden, klicka på

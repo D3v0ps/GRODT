@@ -5,6 +5,7 @@ import { activityTimelineText } from "@/lib/activity-text";
 import { getSessionProfile } from "@/lib/auth";
 import { sniLabel } from "@/lib/constants";
 import { fmtDate, fmtDateTime, fmtKr, fmtPercent } from "@/lib/format";
+import { likelyStaffing } from "@/lib/target";
 import { providerLabel } from "@/lib/providers";
 import { displayYears, getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,6 +18,7 @@ import { FollowUpCard } from "./follow-up-card";
 import { GoogleEnrichButton } from "./google-enrich-button";
 import { HandoffPanel } from "./handoff-panel";
 import { NoteForm } from "./note-form";
+import { TargetControls } from "./target-controls";
 import { TrendChart } from "./trend-chart";
 
 export const metadata = { title: "Bolagsdetalj – GRODT" };
@@ -76,7 +78,7 @@ export default async function BolagDetaljPage({
     supabase
       .from("leads")
       .select(
-        "id, status, owner_id, follow_up_at, follow_up_note, follow_up_user, deal_value_sek, fu:profiles!leads_follow_up_user_fkey(namn)",
+        "id, status, owner_id, follow_up_at, follow_up_note, follow_up_user, deal_value_sek, off_target_at, off_target_sni, target_kept, fu:profiles!leads_follow_up_user_fkey(namn)",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
@@ -173,7 +175,18 @@ export default async function BolagDetaljPage({
           </span>
         </div>
       )}
-      {!company.avregistrerad_datum && sniMismatch && (
+      {!company.avregistrerad_datum && sniMismatch && lead && !lead.off_target_at && (
+        <div className="banner info" style={{ marginBottom: 14 }}>
+          <IconInfo />
+          <span>
+            <strong>Behållet trots målbilden:</strong> Bolagsverket anger{" "}
+            {sniLabel(company.sni_kod)} som bransch – er målbild är{" "}
+            {settings.sniCodes.map((c) => sniLabel(c)).join(", ")}. Leadet ligger kvar i
+            pipelinen efter ett manuellt val.
+          </span>
+        </div>
+      )}
+      {!company.avregistrerad_datum && sniMismatch && !lead && (
         <div className="banner info" style={{ marginBottom: 14 }}>
           <IconInfo />
           <span>
@@ -181,6 +194,18 @@ export default async function BolagDetaljPage({
             bransch – er målbild är {settings.sniCodes.map((c) => sniLabel(c)).join(", ")}.
           </span>
         </div>
+      )}
+      {lead && (
+        <TargetControls
+          leadId={lead.id}
+          offTarget={lead.off_target_at !== null}
+          offTargetSni={lead.off_target_sni}
+          likelyStaffing={
+            !lead.off_target_at &&
+            !sniMismatch &&
+            likelyStaffing(company.namn, company.verksamhetsbeskrivning)
+          }
+        />
       )}
 
       {lead?.status === "kund" && (

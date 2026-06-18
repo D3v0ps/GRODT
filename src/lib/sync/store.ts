@@ -32,6 +32,20 @@ export interface SyncStore {
    */
   markLeadLost(orgnr: string, namn: string, orsak: string): Promise<boolean>;
   /**
+   * Målbild: bolagets SNI ligger utanför målgruppen (t.ex.
+   * personaluthyrning). Flyttar ut ett eventuellt aktivt lead ur
+   * målbilden så att det döljs ur listor/pipeline. Rör aldrig leads där
+   * användaren gjort ett manuellt val (target_kept). Returnerar true om
+   * ett lead ändrades.
+   */
+  markOffTarget(orgnr: string, namn: string, sniKod: string | null): Promise<boolean>;
+  /**
+   * Bolagets SNI matchar nu målbilden igen – återställ ett auto-utflyttat
+   * lead. Rör aldrig manuellt valda leads (target_kept). Returnerar true
+   * om ett lead ändrades.
+   */
+  clearOffTarget(orgnr: string, namn: string): Promise<boolean>;
+  /**
    * Stämplar last_synced_at utan annan skrivning – används när berikningen
    * av ett bolag misslyckas, så att äldst-först-rotationen går vidare.
    */
@@ -44,6 +58,7 @@ export class InMemorySyncStore implements SyncStore {
   readonly financials = new Map<string, YearFinancials>(); // key: orgnr:year
   readonly leads = new Set<string>();
   readonly lostLeads = new Set<string>();
+  readonly offTarget = new Set<string>();
   readonly touched: string[] = [];
 
   async upsertCompany(company: CompanyUpsert): Promise<"created" | "updated"> {
@@ -90,6 +105,18 @@ export class InMemorySyncStore implements SyncStore {
   async markLeadLost(orgnr: string, _namn: string, _orsak: string): Promise<boolean> {
     if (!this.leads.has(orgnr) || this.lostLeads.has(orgnr)) return false;
     this.lostLeads.add(orgnr);
+    return true;
+  }
+
+  async markOffTarget(orgnr: string, _namn: string, _sniKod: string | null): Promise<boolean> {
+    if (!this.leads.has(orgnr) || this.offTarget.has(orgnr)) return false;
+    this.offTarget.add(orgnr);
+    return true;
+  }
+
+  async clearOffTarget(orgnr: string, _namn: string): Promise<boolean> {
+    if (!this.offTarget.has(orgnr)) return false;
+    this.offTarget.delete(orgnr);
     return true;
   }
 

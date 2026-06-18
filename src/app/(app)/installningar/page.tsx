@@ -170,7 +170,10 @@ function SettingsFormWrapper({
             <span>
               Ändrade filterparametrar påverkar nästa svep och nästa CSV-import –
               befintliga bolag och leads tas aldrig bort, och alla års bokslutssiffror
-              sparas oavsett filter.
+              sparas oavsett filter. SNI-koderna ovan är målbilden: bolag vars SNI
+              ligger utanför (t.ex. personaluthyrning 78.200) flyttas automatiskt ut ur
+              pipelinen när Bolagsverket bekräftar branschen – dolda, men återställbara
+              per bolag.
             </span>
           </div>
           {!apiConfigured && (

@@ -28,6 +28,9 @@ export function actionLabel(action: string): string {
     case "tilldelad":
     case "massutdelning":
       return "Tilldelning";
+    case "utanfor_malbild":
+    case "ater_malbild":
+      return "Målbild";
     case "uppfoljning_satt":
     case "uppfoljning_klar":
       return "Uppföljning";
@@ -97,6 +100,10 @@ export function activityDetail(action: string, payload: Payload): string {
     }
     case "massutdelning":
       return `${num(payload, "antal")} leads → ${str(payload, "ansvarig") || "tilldelning borttagen"}`;
+    case "utanfor_malbild":
+      return `${namn} flyttad ut ur målbilden${str(payload, "sni") ? ` (SNI ${str(payload, "sni")})` : ""}`;
+    case "ater_malbild":
+      return `${namn} återställd till målbilden`;
     case "uppfoljning_satt":
       return `${namn}: uppföljning ${str(payload, "datum")}${str(payload, "anteckning") ? ` (${str(payload, "anteckning")})` : ""}`;
     case "uppfoljning_klar":
@@ -200,6 +207,10 @@ export function activityFeedText(action: string, payload: Payload): string {
     }
     case "massutdelning":
       return `delade ut ${num(payload, "antal")} leads till ${str(payload, "ansvarig") || "ingen"}`;
+    case "utanfor_malbild":
+      return `flyttade ut ${namn} ur målbilden`;
+    case "ater_malbild":
+      return `återställde ${namn} till målbilden`;
     case "uppfoljning_satt":
       return `satte uppföljning ${str(payload, "datum")} på ${namn}`;
     case "uppfoljning_klar":
@@ -301,6 +312,10 @@ export function activityTimelineText(action: string, payload: Payload): string {
     }
     case "massutdelning":
       return `Tilldelad ${str(payload, "ansvarig")} (massutdelning)`;
+    case "utanfor_malbild":
+      return `Flyttad ut ur målbilden${str(payload, "sni") ? ` – SNI ${str(payload, "sni")}` : ""}`;
+    case "ater_malbild":
+      return "Återställd till målbilden";
     case "uppfoljning_satt":
       return `Uppföljning satt till ${str(payload, "datum")}${str(payload, "anteckning") ? ` – ${str(payload, "anteckning")}` : ""}`;
     case "uppfoljning_klar":

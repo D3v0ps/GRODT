@@ -47,7 +47,8 @@ export default async function DashboardPage() {
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("status", "ny")
-      .is("owner_id", null),
+      .is("owner_id", null)
+      .is("off_target_at", null),
     supabase.rpc("customer_stats"),
     supabase
       .from("import_runs")
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
         "id, orgnr, follow_up_at, follow_up_note, companies(namn), fu:profiles!leads_follow_up_user_fkey(namn)",
       )
       .not("follow_up_at", "is", null)
+      .is("off_target_at", null)
       .order("follow_up_at", { ascending: true })
       .limit(10),
     supabase.rpc(

@@ -246,6 +246,62 @@ describe("importCompany (delas av synk och CSV-import)", () => {
     expect(store.leads.size).toBe(1);
   });
 
+  it("bolag utanför målbild (SNI 78.200) får inget lead men sparas ändå", async () => {
+    const store = new InMemorySyncStore();
+    const offTarget: CompanyDetails = { ...details, sniKod: "78.200" };
+    const outcome = await importCompany(store, settings, {
+      details: offTarget,
+      financials: [{ year: 2022, revenueSek: 9_000_000, profitSek: null, employees: null }],
+      kalla: "csv",
+      // Off-target slår igenom även när användaren bockat "alla som leads".
+      leadMode: "always",
+    });
+    expect(outcome.leadCreated).toBe(false);
+    expect(store.leads.has(offTarget.orgnr)).toBe(false);
+    expect(store.companies.has(offTarget.orgnr)).toBe(true);
+  });
+
+  it("befintligt lead som visar sig vara 78.200 flyttas ut ur målbilden", async () => {
+    const store = new InMemorySyncStore();
+    store.leads.add(details.orgnr);
+    await importCompany(store, settings, {
+      details: { ...details, sniKod: "78.200" },
+      financials: [{ year: 2022, revenueSek: 9_000_000, profitSek: null, employees: null }],
+      kalla: "bolagsverket",
+    });
+    expect(store.offTarget.has(details.orgnr)).toBe(true);
+  });
+
+  it("okänd SNI gömmer aldrig – vi vet inte ännu", async () => {
+    const store = new InMemorySyncStore();
+    const outcome = await importCompany(store, settings, {
+      details: { ...details, sniKod: null },
+      financials: [{ year: 2022, revenueSek: 9_000_000, profitSek: null, employees: null }],
+      kalla: "csv",
+    });
+    expect(outcome.leadCreated).toBe(true);
+    expect(store.offTarget.has(details.orgnr)).toBe(false);
+  });
+
+  it("ett lead som åter matchar målbilden återställs", async () => {
+    const store = new InMemorySyncStore();
+    store.leads.add(details.orgnr);
+    // Först ut ur målbilden …
+    await importCompany(store, settings, {
+      details: { ...details, sniKod: "78.200" },
+      financials: [{ year: 2022, revenueSek: 9_000_000, profitSek: null, employees: null }],
+      kalla: "bolagsverket",
+    });
+    expect(store.offTarget.has(details.orgnr)).toBe(true);
+    // … sedan rättas SNI till 78.100 och leadet ska återställas.
+    await importCompany(store, settings, {
+      details: { ...details, sniKod: "78.100" },
+      financials: [{ year: 2022, revenueSek: 9_000_000, profitSek: null, employees: null }],
+      kalla: "bolagsverket",
+    });
+    expect(store.offTarget.has(details.orgnr)).toBe(false);
+  });
+
   it("nyckeltal med null skriver aldrig över befintliga värden (trelägesmerge)", async () => {
     const store = new InMemorySyncStore();
     // Först bokslut från Bolagsverket med resultat …

@@ -31,7 +31,7 @@ const STEPS: TourStep[] = [
     path: "/bolag",
     titel: "Bolag – radarlistan",
     text:
-      "Alla bolag som radarn hittat. Sök på namn/orgnr/ort, filtrera på status, ort, omsättning och tillväxt. Fyra årskolumner visar omsättningen – mässingspunkten markerar året som ELLER-kvalificerar bolaget. Markera rader med kryssrutorna för att massutdela eller spara dem som ringlista, eller klicka Lägg till bolag och ange ett orgnr så hämtas allt från Bolagsverket.",
+      "Alla bolag inom målbilden (SNI 78.100 arbetsförmedling/rekrytering). Bolag som visar sig vara personaluthyrning eller annan bransch flyttas automatiskt ut och döljs – bocka i 'Visa utanför målbild' för att granska dem. Sök, filtrera på status/ort/omsättning/tillväxt, sortera på kolumnerna. Markera rader för att massutdela eller spara som ringlista, eller lägg till ett bolag via orgnr.",
   },
   {
     path: "/pipeline",

@@ -101,6 +101,64 @@ export class SupabaseSyncStore implements SyncStore {
     return true;
   }
 
+  /**
+   * Utanför målbild: flytta ut ett KALLT lead (status 'ny') ur pipelinen
+   * och logga som systemhändelse. Villkorad UPDATE i ett anrop – ingen
+   * effekt om leadet saknas, redan är utflyttat, manuellt valt
+   * (target_kept) eller redan bearbetat (status ≠ 'ny'). Att teamet
+   * börjat jobba med ett bolag väger tyngre än SNI-koden; sådana får
+   * flyttas ut manuellt i stället. Påminnelser nollställs.
+   */
+  async markOffTarget(orgnr: string, namn: string, sniKod: string | null): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("leads")
+      .update({
+        off_target_at: new Date().toISOString(),
+        off_target_sni: sniKod,
+        follow_up_at: null,
+        follow_up_note: null,
+        follow_up_user: null,
+      })
+      .eq("orgnr", orgnr)
+      .eq("status", "ny")
+      .is("off_target_at", null)
+      .eq("target_kept", false)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return false;
+
+    await this.supabase.from("activities").insert({
+      actor_id: this.actorId,
+      entity_type: "lead",
+      entity_id: orgnr,
+      action: "utanfor_malbild",
+      payload: { orgnr, namn, sni: sniKod ?? "" },
+    });
+    return true;
+  }
+
+  /** SNI matchar målbilden igen – återställ ett auto-utflyttat lead. */
+  async clearOffTarget(orgnr: string, namn: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("leads")
+      .update({ off_target_at: null, off_target_sni: null })
+      .eq("orgnr", orgnr)
+      .not("off_target_at", "is", null)
+      .eq("target_kept", false)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return false;
+
+    await this.supabase.from("activities").insert({
+      actor_id: this.actorId,
+      entity_type: "lead",
+      entity_id: orgnr,
+      action: "ater_malbild",
+      payload: { orgnr, namn },
+    });
+    return true;
+  }
+
   async upsertFinancials(orgnr: string, rows: YearFinancials[]): Promise<void> {
     const sane = sanitizeFinancials(rows);
     if (sane.length === 0) return;

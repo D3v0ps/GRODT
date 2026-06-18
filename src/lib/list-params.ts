@@ -32,6 +32,8 @@ const listParamsSchema = z.object({
   sort: z.enum(SORT_KEYS).optional().default("namn"),
   dir: z.enum(["asc", "desc"]).optional().default("asc"),
   sida: z.coerce.number().int().min(1).optional().default(1),
+  /** Visa även bolag utanför målbilden (off-target göms annars). */
+  utanfor: z.coerce.boolean().optional(),
 });
 
 export type ListParams = z.infer<typeof listParamsSchema>;
@@ -69,6 +71,7 @@ export function listParamsToQuery(
   if (params.vaxt !== undefined) q.set("vaxt", String(params.vaxt));
   if (params.sort && params.sort !== "namn") q.set("sort", params.sort);
   if (params.dir && params.dir !== "asc") q.set("dir", params.dir);
+  if (params.utanfor) q.set("utanfor", "1");
   if (params.sida && params.sida > 1) q.set("sida", String(params.sida));
   return q;
 }
@@ -96,6 +99,9 @@ export interface LeadListRow {
   follow_up_at: string | null;
   /** Förväntat affärsvärde i kr (sätts på bolagskortet). */
   deal_value_sek: number | null;
+  /** Satt = leadet är utflyttat ur målbilden (off-target, döljs som standard). */
+  off_target_at: string | null;
+  off_target_sni: string | null;
   updated_at: string;
   total_count: number;
 }
@@ -114,6 +120,7 @@ export function rpcArgs(
     p_ort: params.ort ?? null,
     p_owner: params.ansvarig ?? null,
     p_only_unassigned: onlyUnassigned,
+    p_include_off_target: params.utanfor ?? false,
     p_rev_min: params.oms ? params.oms * 1_000_000 : null,
     p_rev_max: null,
     p_year1: years[0],

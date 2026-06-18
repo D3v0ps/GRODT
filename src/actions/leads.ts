@@ -542,6 +542,83 @@ export async function setDealValueAction(
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Målbild: flytta ut / återställ ett lead manuellt                     */
+/* ------------------------------------------------------------------ */
+
+const targetSchema = z.object({
+  leadId: z.uuid(),
+  /** true = återställ till pipelinen, false = flytta ut ur målbilden. */
+  inTarget: z.boolean(),
+});
+
+/**
+ * Manuellt målbildsval. Sätter target_kept så att den automatiska
+ * SNI-styrningen inte skriver över beslutet vid nästa synk – t.ex. ett
+ * bemanningsbolag (78.200) som ändå rekryterar och ska säljas på, eller
+ * tvärtom ett 78.100-bolag som visar sig vara ren uthyrning.
+ */
+export async function setLeadTargetAction(
+  input: z.infer<typeof targetSchema>,
+): Promise<ActionResult> {
+  try {
+    const session = await requireUser();
+    const parsed = targetSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Ogiltig förfrågan." };
+    const { leadId, inTarget } = parsed.data;
+
+    const lead = await fetchLead(leadId);
+    if (!lead) return { ok: false, message: "Leadet hittades inte." };
+
+    const supabase = await createSupabaseServerClient();
+    if (inTarget) {
+      const { error } = await supabase
+        .from("leads")
+        .update({ off_target_at: null, off_target_sni: null, target_kept: true })
+        .eq("id", leadId);
+      if (error) return { ok: false, message: `Kunde inte återställa: ${error.message}` };
+      await logActivity({
+        actorId: session.userId,
+        entityType: "lead",
+        entityId: lead.orgnr,
+        action: "ater_malbild",
+        payload: { orgnr: lead.orgnr, namn: lead.namn },
+      });
+      revalidateLeadViews(lead.orgnr);
+      return { ok: true, message: `${lead.namn} återställd till pipelinen` };
+    }
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("sni_kod")
+      .eq("orgnr", lead.orgnr)
+      .maybeSingle();
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        off_target_at: new Date().toISOString(),
+        off_target_sni: company?.sni_kod ?? null,
+        target_kept: true,
+        follow_up_at: null,
+        follow_up_note: null,
+        follow_up_user: null,
+      })
+      .eq("id", leadId);
+    if (error) return { ok: false, message: `Kunde inte flytta ut: ${error.message}` };
+    await logActivity({
+      actorId: session.userId,
+      entityType: "lead",
+      entityId: lead.orgnr,
+      action: "utanfor_malbild",
+      payload: { orgnr: lead.orgnr, namn: lead.namn, sni: company?.sni_kod ?? "" },
+    });
+    revalidateLeadViews(lead.orgnr);
+    return { ok: true, message: `${lead.namn} flyttad ut ur målbilden` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Något gick fel." };
+  }
+}
+
 const noteSchema = z.object({
   leadId: z.uuid(),
   body: z.string().trim().min(1, "Anteckningen är tom.").max(4000),
