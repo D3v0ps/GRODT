@@ -11,7 +11,7 @@ import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
-import { LEAD_STATUSES, sniLabel } from "@/lib/constants";
+import { branschKlassLabel, LEAD_STATUSES, sniLabel } from "@/lib/constants";
 import { fmtKr, fmtNumber, fmtPercent, todayStockholm } from "@/lib/format";
 import { likelyStaffing } from "@/lib/target";
 import {
@@ -743,6 +743,12 @@ function BolagRow({
     sniCodes.length > 0 &&
     !sniCodes.some((c) => c.replace(/\D/g, "") === row.sni_kod!.replace(/\D/g, ""));
   const growth = row.oms_tillvaxt_pct === null ? null : Number(row.oms_tillvaxt_pct);
+  // Vad bolaget faktiskt gör – så säljaren ser det utan att klicka in.
+  // Prioritet: verksamhetsbeskrivningen, annars branschklassen, annars SNI.
+  const branschRad =
+    row.verksamhet?.trim() ||
+    branschKlassLabel(row.bransch_klass) ||
+    (row.sni_kod ? sniLabel(row.sni_kod) : null);
 
   function open() {
     router.push(`/bolag/${row.orgnr}`);
@@ -766,41 +772,63 @@ function BolagRow({
         />
       </td>
       <td className="namn">
-        {row.namn}
-        {row.avregistrerad && (
-          <span className="badge st-fel" style={{ marginLeft: 8 }} title="Avregistrerat hos Bolagsverket">
-            <span className="dot" />
-            Avreg.
-          </span>
-        )}
-        {row.off_target_at && (
-          <span
-            className="badge st-forlorad"
-            style={{ marginLeft: 8 }}
-            title={`Utanför målbilden${row.off_target_sni ? ` – SNI ${row.off_target_sni}` : ""}. Dolt ur listor och pipeline som standard.`}
-          >
-            <span className="dot" />
-            Utanför målbild{row.off_target_sni ? ` (${row.off_target_sni})` : ""}
-          </span>
-        )}
-        {!row.avregistrerad && !row.off_target_at && sniMismatch && (
-          <span
-            className="badge st-forlorad"
-            style={{ marginLeft: 8 }}
-            title={`Bolagets SNI är ${row.sni_kod} enligt Bolagsverket – utanför målbilden men behållet`}
-          >
-            <span className="dot" />
-            SNI {row.sni_kod}
-          </span>
-        )}
-        {!row.avregistrerad && !row.off_target_at && !sniMismatch && likelyStaffing(row.namn) && (
-          <span
-            className="badge st-kontaktad"
-            style={{ marginLeft: 8 }}
-            title="Namnet antyder personaluthyrning/bemanning – kontrollera SNI innan ni satsar"
-          >
-            <span className="dot" />
-            Trolig uthyrning
+        <span className="namn-rad">
+          {row.namn}
+          {row.avregistrerad && (
+            <span className="badge st-fel" title="Avregistrerat hos Bolagsverket">
+              <span className="dot" />
+              Avreg.
+            </span>
+          )}
+          {row.off_target_at && (
+            <span
+              className="badge st-forlorad"
+              title={`Utanför målbilden${row.off_target_sni ? ` – SNI ${row.off_target_sni}` : ""}. Dolt ur listor och pipeline som standard.`}
+            >
+              <span className="dot" />
+              {branschKlassLabel(row.bransch_klass) ?? "Utanför målbild"}
+            </span>
+          )}
+          {!row.avregistrerad &&
+            !row.off_target_at &&
+            (row.bransch_klass === "personaluthyrning" || row.bransch_klass === "annat") && (
+              <span
+                className="badge st-forlorad"
+                title="Bedömt utanför målbilden men behållet i pipelinen (manuellt val)"
+              >
+                <span className="dot" />
+                {branschKlassLabel(row.bransch_klass)}
+              </span>
+            )}
+          {!row.avregistrerad &&
+            !row.off_target_at &&
+            !row.bransch_klass &&
+            sniMismatch && (
+              <span
+                className="badge st-forlorad"
+                title={`Bolagets SNI är ${row.sni_kod} enligt Bolagsverket – utanför målbilden men behållet`}
+              >
+                <span className="dot" />
+                SNI {row.sni_kod}
+              </span>
+            )}
+          {!row.avregistrerad &&
+            !row.off_target_at &&
+            !row.bransch_klass &&
+            !sniMismatch &&
+            likelyStaffing(row.namn, row.verksamhet) && (
+              <span
+                className="badge st-kontaktad"
+                title="Namnet/beskrivningen antyder personaluthyrning – kontrollera innan ni satsar"
+              >
+                <span className="dot" />
+                Trolig uthyrning
+              </span>
+            )}
+        </span>
+        {branschRad && (
+          <span className="bransch-sub" title={row.verksamhet ?? undefined}>
+            {branschRad}
           </span>
         )}
       </td>

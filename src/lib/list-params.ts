@@ -102,6 +102,10 @@ export interface LeadListRow {
   /** Satt = leadet är utflyttat ur målbilden (off-target, döljs som standard). */
   off_target_at: string | null;
   off_target_sni: string | null;
+  /** Sammanvägd branschklass (AI/manuell): arbetsformedling | personaluthyrning | annat. */
+  bransch_klass: string | null;
+  /** Kort utdrag ur verksamhetsbeskrivningen (max 160 tecken). */
+  verksamhet: string | null;
   updated_at: string;
   total_count: number;
 }

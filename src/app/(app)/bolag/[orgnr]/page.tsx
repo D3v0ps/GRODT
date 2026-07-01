@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
 import { getSessionProfile } from "@/lib/auth";
-import { sniLabel } from "@/lib/constants";
+import { branschKlassLabel, sniLabel } from "@/lib/constants";
 import { fmtDate, fmtDateTime, fmtKr, fmtPercent } from "@/lib/format";
 import { likelyStaffing } from "@/lib/target";
 import { providerLabel } from "@/lib/providers";
@@ -65,7 +65,7 @@ export default async function BolagDetaljPage({
     supabase
       .from("companies")
       .select(
-        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, telefon_kalla, hemsida_kalla, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr",
+        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, telefon_kalla, hemsida_kalla, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr, bransch_klass",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
@@ -235,7 +235,14 @@ export default async function BolagDetaljPage({
                 </div>
                 <div className="fact">
                   <div className="k">Bransch</div>
-                  <div className="v">{sniLabel(company.sni_kod)}</div>
+                  <div className="v">
+                    {sniLabel(company.sni_kod)}
+                    {branschKlassLabel(company.bransch_klass) && (
+                      <span className="faint small" style={{ display: "block" }}>
+                        Bedömning: {branschKlassLabel(company.bransch_klass)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="fact">
                   <div className="k">Omsättning {years[0]}</div>

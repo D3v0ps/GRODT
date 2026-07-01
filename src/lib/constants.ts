@@ -60,6 +60,21 @@ export function rollLabel(roll: string): string {
   return ROLES.find((r) => r.key === roll)?.label ?? "Säljare";
 }
 
+/**
+ * Sammanvägd branschklass (AI-omdöme eller manuellt) – används i listan
+ * och på bolagskortet för att säljaren direkt ska se vad bolaget gör.
+ */
+export const BRANSCH_KLASS_LABELS: Record<string, string> = {
+  arbetsformedling: "Arbetsförmedling & rekrytering",
+  personaluthyrning: "Personaluthyrning / bemanning",
+  annat: "Annan bransch",
+};
+
+export function branschKlassLabel(klass: string | null | undefined): string | null {
+  if (!klass) return null;
+  return BRANSCH_KLASS_LABELS[klass] ?? null;
+}
+
 export const SNI_LABELS: Record<string, string> = {
   "78.100": "Arbetsförmedling och rekrytering",
   "78.200": "Personaluthyrning",

@@ -1436,6 +1436,19 @@ a.notif-item:hover { background: var(--blue-tint); text-decoration: none; }
 .tratt .t-bar.forlust > span { background: var(--st-forlorad-dot); }
 .tratt .t-tal { font-size: 12px; white-space: nowrap; min-width: 64px; text-align: right; }
 
+/* ---------- Bransch i bolagslistan ---------- */
+.namn-rad { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bransch-sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Målbildsfilter (off-target) ---------- */
 .malbild-toggle {
   display: inline-flex;
