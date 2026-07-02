@@ -165,6 +165,23 @@ export function IconChart({ className = "icon" }: IconProps) {
   );
 }
 
+/** Eldikonen: AI-bedömd arbetsförmedling – rätt målgrupp. Animeras via .flame. */
+export function IconFlame({ className = "flame" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8.1 1.2c.3 2.1-.6 3.3-1.7 4.4C5.2 6.8 4 8 4 10.1c0 2.5 1.8 4.4 4 4.4s4-1.9 4-4.4c0-1.3-.5-2.4-1.1-3.4-.3.6-.8 1.1-1.4 1.4.4-2.4-.3-5.2-1.4-6.9Z"
+        fill="currentColor"
+      />
+      <path
+        d="M8 14.5c-1.2 0-2.1-1-2.1-2.3 0-1.1.7-1.7 1.3-2.4.4-.5.8-1 1-1.6.8 1 1.9 2.4 1.9 4 0 1.3-.9 2.3-2.1 2.3Z"
+        fill="#FFD8A8"
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
 export function IconBell({ className = "icon" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">

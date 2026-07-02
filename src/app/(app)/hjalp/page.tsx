@@ -86,17 +86,20 @@ export default async function HjalpPage() {
             <strong>Exportera CSV</strong> tar med exakt de filter du ser.
           </p>
           <p>
-            <strong>Målbilden (SNI):</strong> verktyget säljer bara på rätt bolag.
-            Arbetsförmedling/rekrytering är SNI 78.100; personaluthyrning (78.200) och
-            övrigt är utanför. När Bolagsverket bekräftar att ett bolag har en SNI-kod
-            utanför målbilden flyttas leadet automatiskt ut – det döljs ur listan,
-            pipelinen och statistiken (men raderas aldrig). Bocka i{" "}
-            <em>Visa utanför målbild</em> i verktygsfältet för att se dem, och öppna ett
-            bolag för att <em>Återställa det till pipelinen</em> om det ändå är säljbart.
-            Filtret bygger på den strukturerade SNI-koden, inte beskrivningstexten –
-            ett bolag som heter &quot;Bemanning&quot; men är registrerat som
-            arbetsförmedling får en gul <em>Trolig uthyrning</em>-varning att dubbelkolla,
-            inte ett automatiskt bortfall.
+            <strong>Målbilden:</strong> verktyget säljer bara på rätt bolag. Varje bolag
+            är AI-bedömt utifrån namn, verksamhetsbeskrivning och SNI-kod till en av
+            tre klasser: <em>arbetsförmedling/rekrytering</em> (målgruppen),{" "}
+            <em>personaluthyrning</em> eller <em>annat</em>. Bolag utanför målgruppen
+            flyttas ut – de döljs ur listan, pipelinen och statistiken (men raderas
+            aldrig). Bocka i <em>Visa utanför målbild</em> i verktygsfältet för att se
+            dem, och öppna ett bolag för att <em>Återställa det till pipelinen</em> om
+            det ändå är säljbart.
+          </p>
+          <p>
+            <strong>Lågan</strong> intill bolagsnamnet är bedömningens kvitto: bolaget
+            bedöms köra arbetsförmedling/rekrytering – rätt målgrupp att ringa. Raden
+            under namnet visar alltid vad bolaget faktiskt gör, så ingen behöver klicka
+            in på fel kund. Bedömningen syns också på bolagskortet under Bolagsfakta.
           </p>
           <p>
             Övriga flaggor: <em>Avreg.</em> betyder att bolaget är avregistrerat hos

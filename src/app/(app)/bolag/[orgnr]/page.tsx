@@ -10,7 +10,7 @@ import { providerLabel } from "@/lib/providers";
 import { displayYears, getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
-import { IconBack, IconError, IconInfo } from "@/components/icons";
+import { IconBack, IconError, IconFlame, IconInfo } from "@/components/icons";
 import { ContactsCard, type ContactRow } from "./contacts-card";
 import { DealValueCard } from "./deal-value-card";
 import { DetailActions } from "./detail-actions";
@@ -144,7 +144,18 @@ export default async function BolagDetaljPage({
       </Link>
       <div className="view-head">
         <div>
-          <h1>{company.namn}</h1>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {company.namn}
+            {!company.avregistrerad_datum && company.bransch_klass === "arbetsformedling" && (
+              <span
+                className="flame-wrap"
+                title="AI-bedömd: bolaget kör arbetsförmedling/rekrytering – rätt målgrupp"
+              >
+                <IconFlame className="flame flame-lg" />
+                <span className="sr-only">Bedömd arbetsförmedling</span>
+              </span>
+            )}
+          </h1>
           <p className="lede">
             <span className="mono">{company.orgnr}</span> · {company.ort ?? "Okänd ort"} · SNI{" "}
             {company.sni_kod ?? "–"}

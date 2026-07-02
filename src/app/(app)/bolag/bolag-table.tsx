@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addLeadAction, bulkAssignAction } from "@/actions/leads";
 import { createCallListAction } from "@/actions/ringlistor";
 import { EmptyState } from "@/components/empty-state";
-import { IconDownload, IconPhone, IconSearch } from "@/components/icons";
+import { IconDownload, IconFlame, IconPhone, IconSearch } from "@/components/icons";
 import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
@@ -774,6 +774,15 @@ function BolagRow({
       <td className="namn">
         <span className="namn-rad">
           {row.namn}
+          {!row.avregistrerad && !row.off_target_at && row.bransch_klass === "arbetsformedling" && (
+            <span
+              className="flame-wrap"
+              title="AI-bedömd: bolaget kör arbetsförmedling/rekrytering – rätt målgrupp"
+            >
+              <IconFlame />
+              <span className="sr-only">Bedömd arbetsförmedling</span>
+            </span>
+          )}
           {row.avregistrerad && (
             <span className="badge st-fel" title="Avregistrerat hos Bolagsverket">
               <span className="dot" />
