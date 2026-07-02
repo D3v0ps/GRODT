@@ -110,6 +110,21 @@ export class SupabaseSyncStore implements SyncStore {
    * flyttas ut manuellt i stället. Påminnelser nollställs.
    */
   async markOffTarget(orgnr: string, namn: string, sniKod: string | null): Promise<boolean> {
+    // AI-bedömd målgrupp slår SNI: omställningsbolag har ofta SNI utanför
+    // 78.100 (t.ex. 85.591 arbetsmarknadsutbildning) men ÄR målgruppen.
+    // (InMemory-storen i testerna saknar klassdata och hoppar över vakten.)
+    const { data: company } = await this.supabase
+      .from("companies")
+      .select("bransch_klass")
+      .eq("orgnr", orgnr)
+      .maybeSingle();
+    if (
+      company?.bransch_klass === "arbetsformedling" ||
+      company?.bransch_klass === "omstallning"
+    ) {
+      return false;
+    }
+
     const { data, error } = await this.supabase
       .from("leads")
       .update({

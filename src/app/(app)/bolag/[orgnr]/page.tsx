@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchActivities } from "@/lib/activity";
 import { activityTimelineText } from "@/lib/activity-text";
 import { getSessionProfile } from "@/lib/auth";
-import { branschKlassLabel, sniLabel } from "@/lib/constants";
+import { branschKlassLabel, isMalgrupp, sniLabel } from "@/lib/constants";
 import { fmtDate, fmtDateTime, fmtKr, fmtPercent } from "@/lib/format";
 import { likelyStaffing } from "@/lib/target";
 import { providerLabel } from "@/lib/providers";
@@ -146,13 +146,15 @@ export default async function BolagDetaljPage({
         <div>
           <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {company.namn}
-            {!company.avregistrerad_datum && company.bransch_klass === "arbetsformedling" && (
+            {!company.avregistrerad_datum && isMalgrupp(company.bransch_klass) && (
               <span
                 className="flame-wrap"
-                title="AI-bedömd: bolaget kör arbetsförmedling/rekrytering – rätt målgrupp"
+                title={`AI-bedömd: ${branschKlassLabel(company.bransch_klass)} – rätt målgrupp`}
               >
                 <IconFlame className="flame flame-lg" />
-                <span className="sr-only">Bedömd arbetsförmedling</span>
+                <span className="sr-only">
+                  Bedömd målgrupp: {branschKlassLabel(company.bransch_klass)}
+                </span>
               </span>
             )}
           </h1>
@@ -186,7 +188,13 @@ export default async function BolagDetaljPage({
           </span>
         </div>
       )}
-      {!company.avregistrerad_datum && sniMismatch && lead && !lead.off_target_at && (
+      {!company.avregistrerad_datum &&
+        sniMismatch &&
+        lead &&
+        !lead.off_target_at &&
+        // Målgruppsbolag (t.ex. omställning med SNI 85.591) är RÄTT i
+        // pipelinen – SNI-avvikelsen är väntad, inte något att varna för.
+        !isMalgrupp(company.bransch_klass) && (
         <div className="banner info" style={{ marginBottom: 14 }}>
           <IconInfo />
           <span>
@@ -214,6 +222,9 @@ export default async function BolagDetaljPage({
           likelyStaffing={
             !lead.off_target_at &&
             !sniMismatch &&
+            // AI-bedömd målgrupp trumfar namn-heuristiken – t.ex. ett
+            // omställningsbolag med "Bemanning" i namnet ska inte varnas.
+            !isMalgrupp(company.bransch_klass) &&
             likelyStaffing(company.namn, company.verksamhetsbeskrivning)
           }
         />

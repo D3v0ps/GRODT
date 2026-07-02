@@ -11,7 +11,7 @@ import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
 import { AvatarWithName } from "@/components/avatar";
-import { branschKlassLabel, LEAD_STATUSES, sniLabel } from "@/lib/constants";
+import { branschKlassLabel, isMalgrupp, LEAD_STATUSES, sniLabel } from "@/lib/constants";
 import { fmtKr, fmtNumber, fmtPercent, todayStockholm } from "@/lib/format";
 import { likelyStaffing } from "@/lib/target";
 import {
@@ -774,13 +774,15 @@ function BolagRow({
       <td className="namn">
         <span className="namn-rad">
           {row.namn}
-          {!row.avregistrerad && !row.off_target_at && row.bransch_klass === "arbetsformedling" && (
+          {!row.avregistrerad && !row.off_target_at && isMalgrupp(row.bransch_klass) && (
             <span
               className="flame-wrap"
-              title="AI-bedömd: bolaget kör arbetsförmedling/rekrytering – rätt målgrupp"
+              title={`AI-bedömd: ${branschKlassLabel(row.bransch_klass)} – rätt målgrupp`}
             >
               <IconFlame />
-              <span className="sr-only">Bedömd arbetsförmedling</span>
+              <span className="sr-only">
+                Bedömd målgrupp: {branschKlassLabel(row.bransch_klass)}
+              </span>
             </span>
           )}
           {row.avregistrerad && (

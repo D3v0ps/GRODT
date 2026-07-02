@@ -66,6 +66,7 @@ export function rollLabel(roll: string): string {
  */
 export const BRANSCH_KLASS_LABELS: Record<string, string> = {
   arbetsformedling: "Arbetsförmedling & rekrytering",
+  omstallning: "Omställning & matchning",
   personaluthyrning: "Personaluthyrning / bemanning",
   annat: "Annan bransch",
 };
@@ -73,6 +74,15 @@ export const BRANSCH_KLASS_LABELS: Record<string, string> = {
 export function branschKlassLabel(klass: string | null | undefined): string | null {
   if (!klass) return null;
   return BRANSCH_KLASS_LABELS[klass] ?? null;
+}
+
+/**
+ * Målgruppen = bolag ni säljer på: arbetsförmedling/rekrytering och
+ * omställning/matchning. Dessa får lågan i UI:t och skyddas från
+ * SNI-baserad utflyttning.
+ */
+export function isMalgrupp(klass: string | null | undefined): boolean {
+  return klass === "arbetsformedling" || klass === "omstallning";
 }
 
 export const SNI_LABELS: Record<string, string> = {

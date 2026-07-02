@@ -88,18 +88,20 @@ export default async function HjalpPage() {
           <p>
             <strong>Målbilden:</strong> verktyget säljer bara på rätt bolag. Varje bolag
             är AI-bedömt utifrån namn, verksamhetsbeskrivning och SNI-kod till en av
-            tre klasser: <em>arbetsförmedling/rekrytering</em> (målgruppen),{" "}
-            <em>personaluthyrning</em> eller <em>annat</em>. Bolag utanför målgruppen
-            flyttas ut – de döljs ur listan, pipelinen och statistiken (men raderas
-            aldrig). Bocka i <em>Visa utanför målbild</em> i verktygsfältet för att se
-            dem, och öppna ett bolag för att <em>Återställa det till pipelinen</em> om
-            det ändå är säljbart.
+            fyra klasser: <em>arbetsförmedling/rekrytering</em> och{" "}
+            <em>omställning/matchning</em> (målgruppen) respektive{" "}
+            <em>personaluthyrning</em> och <em>annat</em> (utanför). Bolag utanför
+            målgruppen flyttas ut – de döljs ur listan, pipelinen och statistiken (men
+            raderas aldrig). Bocka i <em>Visa utanför målbild</em> i verktygsfältet för
+            att se dem, och öppna ett bolag för att <em>Återställa det till pipelinen</em>{" "}
+            om det ändå är säljbart.
           </p>
           <p>
             <strong>Lågan</strong> intill bolagsnamnet är bedömningens kvitto: bolaget
-            bedöms köra arbetsförmedling/rekrytering – rätt målgrupp att ringa. Raden
-            under namnet visar alltid vad bolaget faktiskt gör, så ingen behöver klicka
-            in på fel kund. Bedömningen syns också på bolagskortet under Bolagsfakta.
+            bedöms köra arbetsförmedling/rekrytering eller omställning – rätt målgrupp
+            att ringa (håll muspekaren över lågan så står vilken). Raden under namnet
+            visar alltid vad bolaget faktiskt gör, så ingen behöver klicka in på fel
+            kund. Bedömningen syns också på bolagskortet under Bolagsfakta.
           </p>
           <p>
             Övriga flaggor: <em>Avreg.</em> betyder att bolaget är avregistrerat hos

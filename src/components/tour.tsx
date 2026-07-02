@@ -31,7 +31,7 @@ const STEPS: TourStep[] = [
     path: "/bolag",
     titel: "Bolag – radarlistan",
     text:
-      "Alla bolag inom målbilden. Lågan vid namnet betyder AI-bedömd arbetsförmedling/rekrytering – rätt målgrupp att ringa – och raden under namnet visar vad bolaget gör. Uthyrnings- och övrigbolag flyttas ut automatiskt; bocka i 'Visa utanför målbild' för att granska dem. Sök, filtrera, sortera, massutdela, spara som ringlista eller lägg till bolag via orgnr.",
+      "Alla bolag inom målbilden. Lågan vid namnet betyder AI-bedömd målgrupp – arbetsförmedling/rekrytering eller omställning/matchning – och raden under namnet visar vad bolaget gör. Uthyrnings- och övrigbolag flyttas ut automatiskt; bocka i 'Visa utanför målbild' för att granska dem. Sök, filtrera, sortera, massutdela, spara som ringlista eller lägg till bolag via orgnr.",
   },
   {
     path: "/pipeline",
