@@ -260,6 +260,13 @@ export default async function HjalpPage() {
             eller bocka i &quot;importera alla som leads&quot;.
           </p>
           <p>
+            <strong>Leverantörer från Arbetsförmedlingen:</strong> hämtar alla godkända
+            Rusta och matcha-leverantörer ur AF:s publika register – orgnr,
+            kontaktperson med telefon/e-post och hemsida. De blir leads direkt, klassas
+            som omställning (låga) och kontaktpersonen hamnar källmärkt på
+            bolagskortet. Kör igen när registret ändrats – inget skrivs över.
+          </p>
+          <p>
             <strong>Bolagsverket:</strong> berikar befintliga bolag med
             myndighetsdata och bokslut ur digitala årsredovisningar (gratis API).
             Körningar startas med <em>Hämta bolag nu</em> eller automatiskt varje

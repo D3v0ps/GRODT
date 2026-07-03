@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { IconError } from "@/components/icons";
 import { getSessionProfile } from "@/lib/auth";
 import { getGooglePlacesApiKey } from "@/lib/providers/google-places";
+import { AfImportCard } from "./af-import-card";
 import { CsvImportCard } from "./csv-import-card";
 import { GoogleSweepCard } from "./google-sweep-card";
 import { SyncButton } from "./sync-button";
@@ -99,6 +100,8 @@ export default async function SynkPage() {
       </div>
 
       <CsvImportCard sniCodes={settings.sniCodes} />
+
+      <AfImportCard />
 
       {session?.roll === "admin" && (
         <GoogleSweepCard saknarTelefon={saknarTelefon} configured={googleKey !== null} />

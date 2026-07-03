@@ -132,7 +132,10 @@ export function ContactsCard({
                     {contact.kalla && (
                       <span className="badge st-kontaktad" style={{ marginLeft: 8 }}>
                         <span className="dot" />
-                        via {contact.kalla}
+                        via{" "}
+                        {contact.kalla === "arbetsformedlingen"
+                          ? "Arbetsförmedlingen"
+                          : contact.kalla}
                       </span>
                     )}
                     <span className="spacer" />

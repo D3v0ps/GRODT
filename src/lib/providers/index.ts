@@ -142,6 +142,8 @@ export function providerLabel(name: string | null): string {
       return "Bolagsverket (Värdefulla datamängder)";
     case "csv":
       return "CSV-import";
+    case "arbetsformedlingen":
+      return "Arbetsförmedlingen (Rusta och matcha)";
     case "manuell":
       return "Manuellt tillagd";
     default:
