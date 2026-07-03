@@ -30,18 +30,24 @@ interface RunRow {
 
 export default async function SynkPage() {
   const supabase = await createSupabaseServerClient();
-  const [settings, providerName, session, googleKey, missingPhoneRes] = await Promise.all([
-    getSyncFilter(supabase),
-    getEffectiveProviderName(supabase),
-    getSessionProfile(),
-    getGooglePlacesApiKey(),
-    supabase
-      .from("companies")
-      .select("orgnr", { count: "exact", head: true })
-      .is("telefon", null)
-      .is("avregistrerad_datum", null),
-  ]);
+  const [settings, providerName, session, googleKey, missingPhoneRes, queueRes] =
+    await Promise.all([
+      getSyncFilter(supabase),
+      getEffectiveProviderName(supabase),
+      getSessionProfile(),
+      getGooglePlacesApiKey(),
+      supabase
+        .from("companies")
+        .select("orgnr", { count: "exact", head: true })
+        .is("telefon", null)
+        .is("avregistrerad_datum", null),
+      supabase
+        .from("companies")
+        .select("orgnr", { count: "exact", head: true })
+        .is("last_synced_at", null),
+    ]);
   const saknarTelefon = missingPhoneRes.count ?? 0;
+  const berikningsko = queueRes.count ?? 0;
 
   const { data: runsData } = await supabase
     .from("import_runs")
@@ -65,7 +71,7 @@ export default async function SynkPage() {
           </p>
         </div>
         <div className="actions">
-          <SyncButton disabled={providerName === null} />
+          <SyncButton disabled={providerName === null} queueCount={berikningsko} />
         </div>
       </div>
 

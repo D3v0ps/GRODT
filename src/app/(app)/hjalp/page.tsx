@@ -271,6 +271,9 @@ export default async function HjalpPage() {
           <p>
             <strong>Bolagsverket:</strong> berikar befintliga bolag med
             myndighetsdata och bokslut ur digitala årsredovisningar (gratis API).
+            Nyimporterade bolag ligger först i berikningskön, och &quot;Hämta bolag
+            nu&quot; kedjar automatiskt svep efter svep (~40 bolag åt gången) tills
+            kön är tom – lämna fliken öppen så sköter den resten.
             Körningar startas med <em>Hämta bolag nu</em> eller automatiskt varje
             måndag. <strong>Google-svepet</strong> (admin) fyller i saknade
             telefonnummer/hemsidor – alltid källmärkt, aldrig över befintlig data.

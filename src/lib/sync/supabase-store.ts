@@ -19,11 +19,19 @@ export class SupabaseSyncStore implements SyncStore {
     const { data: existing, error: selectError } = await this.supabase
       .from("companies")
       .select(
-        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr",
+        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr, last_synced_at",
       )
       .eq("orgnr", company.orgnr)
       .maybeSingle();
     if (selectError) throw new Error(selectError.message);
+
+    // last_synced_at betyder "senast berikad av datakällan" och styr
+    // Bolagsverkets äldst först-rotation. Endast riktiga berikningskällor
+    // stämplar – CSV-/AF-/manuell import får ALDRIG knuffa bolaget längst
+    // bak i kön (nya bolag ska tvärtom berikas först, därför null).
+    const enrichingSource = ["bolagsverket", "tic", "mock", "uc-allabolag"].includes(
+      company.kalla,
+    );
 
     // Berikningsvänlig merge: källor som saknar ett fält (t.ex. Bolagsverket
     // har inte hemsida/telefon/anställda) skriver aldrig över befintliga
@@ -64,7 +72,9 @@ export class SupabaseSyncStore implements SyncStore {
             ? (existing?.reklamsparr ?? false)
             : company.reklamsparr,
         kalla: company.kalla,
-        last_synced_at: new Date().toISOString(),
+        last_synced_at: enrichingSource
+          ? new Date().toISOString()
+          : (existing?.last_synced_at ?? null),
       },
       { onConflict: "orgnr" },
     );
