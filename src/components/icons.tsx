@@ -182,6 +182,23 @@ export function IconFlame({ className = "flame" }: IconProps) {
   );
 }
 
+/** Pengasäcken: godkänd AF-leverantör (Rusta och matcha) – het att jaga. */
+export function IconMoneyBag({ className = "moneybag" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M5.6 1.4h4.8l-1 2.1H6.6l-1-2.1Z" fill="currentColor" />
+      <path
+        d="M6.3 4.1h3.4c2.5 1.4 4 3.5 4 5.9 0 2.9-2.3 4.6-5.7 4.6S2.3 12.9 2.3 10c0-2.4 1.5-4.5 4-5.9Z"
+        fill="currentColor"
+      />
+      <path
+        d="M8.15 6.1v.75c.95.08 1.65.6 1.75 1.5H8.75c-.06-.4-.34-.62-.8-.62-.48 0-.75.2-.75.55 0 .33.25.48 1 .66 1.15.26 1.75.72 1.75 1.63 0 .9-.65 1.5-1.8 1.6v.73h-.75v-.74c-1.05-.1-1.75-.68-1.85-1.62h1.15c.08.45.4.68.95.68.55 0 .85-.22.85-.6 0-.35-.28-.5-1.1-.7-1.1-.25-1.65-.7-1.65-1.58 0-.83.65-1.4 1.7-1.5V6.1h.75Z"
+        fill="#FFF3D6"
+      />
+    </svg>
+  );
+}
+
 export function IconBell({ className = "icon" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">

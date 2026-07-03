@@ -158,6 +158,15 @@ export async function importAfLeverantorerAction(): Promise<AfImportResult> {
           .eq("orgnr", lev.orgnr)
           .or("bransch_klass.is.null,bransch_klass.in.(annat,personaluthyrning)");
 
+        // Pengasäcken: märk bolaget som godkänd leverantör med AF:s betyg.
+        await admin
+          .from("companies")
+          .update({
+            af_leverantor_at: new Date().toISOString(),
+            af_rating: lev.rating,
+          })
+          .eq("orgnr", lev.orgnr);
+
         // Återställ ev. utflyttat lead och skydda från automatiken.
         const { data: restored } = await admin
           .from("leads")

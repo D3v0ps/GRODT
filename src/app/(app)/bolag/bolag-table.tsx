@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addLeadAction, bulkAssignAction } from "@/actions/leads";
 import { createCallListAction } from "@/actions/ringlistor";
 import { EmptyState } from "@/components/empty-state";
-import { IconDownload, IconFlame, IconPhone, IconSearch } from "@/components/icons";
+import { IconDownload, IconFlame, IconMoneyBag, IconPhone, IconSearch } from "@/components/icons";
 import { ConfirmDialog, Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast";
@@ -783,6 +783,15 @@ function BolagRow({
               <span className="sr-only">
                 Bedömd målgrupp: {branschKlassLabel(row.bransch_klass)}
               </span>
+            </span>
+          )}
+          {!row.avregistrerad && row.af_leverantor && (
+            <span
+              className="flame-wrap"
+              title={`Godkänd Rusta och matcha-leverantör hos Arbetsförmedlingen${row.af_rating ? ` – betyg ${row.af_rating} av 5` : ""}. Upphandlad och betald av staten – het att jaga.`}
+            >
+              <IconMoneyBag />
+              <span className="sr-only">Rusta och matcha-leverantör</span>
             </span>
           )}
           {row.avregistrerad && (

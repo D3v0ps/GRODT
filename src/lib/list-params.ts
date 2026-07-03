@@ -102,6 +102,10 @@ export interface LeadListRow {
   /** Satt = leadet är utflyttat ur målbilden (off-target, döljs som standard). */
   off_target_at: string | null;
   off_target_sni: string | null;
+  /** Godkänd Rusta och matcha-leverantör hos Arbetsförmedlingen (pengasäcken). */
+  af_leverantor: boolean;
+  /** AF:s stjärnbetyg 1–5, när det finns. */
+  af_rating: number | null;
   /** Sammanvägd branschklass (AI/manuell): arbetsformedling | personaluthyrning | annat. */
   bransch_klass: string | null;
   /** Kort utdrag ur verksamhetsbeskrivningen (max 160 tecken). */

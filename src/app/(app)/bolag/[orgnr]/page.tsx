@@ -10,7 +10,7 @@ import { providerLabel } from "@/lib/providers";
 import { displayYears, getSyncFilter } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/empty-state";
-import { IconBack, IconError, IconFlame, IconInfo } from "@/components/icons";
+import { IconBack, IconError, IconFlame, IconInfo, IconMoneyBag } from "@/components/icons";
 import { ContactsCard, type ContactRow } from "./contacts-card";
 import { DealValueCard } from "./deal-value-card";
 import { DetailActions } from "./detail-actions";
@@ -65,7 +65,7 @@ export default async function BolagDetaljPage({
     supabase
       .from("companies")
       .select(
-        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, telefon_kalla, hemsida_kalla, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr, bransch_klass",
+        "orgnr, namn, sni_kod, ort, adress, antal_anstallda, hemsida, telefon, telefon_kalla, hemsida_kalla, kalla, last_synced_at, verksamhetsbeskrivning, registreringsdatum, bolagsform, avregistrerad_datum, reklamsparr, bransch_klass, af_leverantor_at, af_rating",
       )
       .eq("orgnr", orgnr)
       .maybeSingle(),
@@ -155,6 +155,15 @@ export default async function BolagDetaljPage({
                 <span className="sr-only">
                   Bedömd målgrupp: {branschKlassLabel(company.bransch_klass)}
                 </span>
+              </span>
+            )}
+            {!company.avregistrerad_datum && company.af_leverantor_at && (
+              <span
+                className="flame-wrap"
+                title={`Godkänd Rusta och matcha-leverantör hos Arbetsförmedlingen${company.af_rating ? ` – betyg ${company.af_rating} av 5` : ""}. Upphandlad och betald av staten – het att jaga.`}
+              >
+                <IconMoneyBag className="moneybag moneybag-lg" />
+                <span className="sr-only">Rusta och matcha-leverantör</span>
               </span>
             )}
           </h1>

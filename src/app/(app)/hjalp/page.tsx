@@ -99,9 +99,11 @@ export default async function HjalpPage() {
           <p>
             <strong>Lågan</strong> intill bolagsnamnet är bedömningens kvitto: bolaget
             bedöms köra arbetsförmedling/rekrytering eller omställning – rätt målgrupp
-            att ringa (håll muspekaren över lågan så står vilken). Raden under namnet
-            visar alltid vad bolaget faktiskt gör, så ingen behöver klicka in på fel
-            kund. Bedömningen syns också på bolagskortet under Bolagsfakta.
+            att ringa (håll muspekaren över lågan så står vilken).{" "}
+            <strong>Pengasäcken</strong> betyder att bolaget är en godkänd Rusta och
+            matcha-leverantör hos Arbetsförmedlingen – upphandlad och betald av staten,
+            extra het att jaga (tooltip visar AF:s betyg 1–5). Raden under namnet visar
+            alltid vad bolaget faktiskt gör, så ingen behöver klicka in på fel kund.
           </p>
           <p>
             Övriga flaggor: <em>Avreg.</em> betyder att bolaget är avregistrerat hos

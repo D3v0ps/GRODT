@@ -1461,6 +1461,25 @@ a.notif-item:hover { background: var(--blue-tint); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .flame { animation: none; }
 }
+
+/* ---------- Pengasäcken: AF-leverantör (Rusta och matcha) ---------- */
+/* Mässing – statliga pengar i signaturaccenten, med diskret glimmer. */
+.moneybag {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--accent);
+  animation: moneybag-glimmer 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 2px rgba(201, 146, 26, 0.45));
+}
+.moneybag-lg { width: 20px; height: 20px; }
+@keyframes moneybag-glimmer {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(201, 146, 26, 0.35)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 5px rgba(201, 146, 26, 0.7)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moneybag { animation: none; }
+}
 .bransch-sub {
   display: block;
   font-size: 11.5px;
